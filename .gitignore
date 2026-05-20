@@ -1,0 +1,45 @@
+# ── Secrets — NUNCA subir al repo ─────────────────────────
+.env
+.env.local
+.env*.local
+.env.production
+backend/.env
+
+# ── Next.js ────────────────────────────────────────────────
+.next/
+out/
+node_modules/
+
+# ── Python / Backend ───────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+backend/venv/
+backend/.venv/
+*.egg-info/
+dist/
+build/
+
+# ── Sistema ────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# ── IDEs ───────────────────────────────────────────────────
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+
+# ── Deploy ─────────────────────────────────────────────────
+.vercel/
+
+# ── v0 sandbox (limpiar artefactos del generador) ──────────
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
