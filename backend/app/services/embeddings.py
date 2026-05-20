@@ -98,6 +98,8 @@ async def find_similar_papers(
     Busca papers semánticamente similares via pgvector (cosine similarity).
     Usa el embedding promedio de los primeros 3 chunks del paper.
     """
+    import json as _json
+
     supabase = _get_supabase()
 
     chunks_resp = (
@@ -110,7 +112,20 @@ async def find_similar_papers(
     if not chunks_resp.data:
         return []
 
-    vectors = [row["embedding"] for row in chunks_resp.data if row.get("embedding")]
+    # Supabase/pgvector can return vectors as JSON strings — parse defensively
+    vectors: list[list[float]] = []
+    for row in chunks_resp.data:
+        emb = row.get("embedding")
+        if emb is None:
+            continue
+        if isinstance(emb, str):
+            try:
+                emb = _json.loads(emb)
+            except Exception:
+                continue
+        if isinstance(emb, list) and emb:
+            vectors.append([float(x) for x in emb])
+
     if not vectors:
         return []
 

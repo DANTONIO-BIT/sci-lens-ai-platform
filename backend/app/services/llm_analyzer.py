@@ -116,31 +116,48 @@ PAPER CONTENT (excerpt):
 
 Analyze this paper and return the JSON assessment."""
 
-    # Intentar con JSON mode si el modelo lo soporta, con fallback sin él
-    for use_json_mode in (True, False):
-        try:
-            kwargs: dict = dict(
-                model=settings.llm_model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_message},
-                ],
-                temperature=0.1,
-                max_tokens=2000,
-            )
-            if use_json_mode:
-                kwargs["response_format"] = {"type": "json_object"}
+    import asyncio as _asyncio
 
-            response = await _client.chat.completions.create(**kwargs)
-            raw = response.choices[0].message.content or "{}"
-            data = _extract_json(raw)
-            return AnalysisResult(**data)
+    last_error: Exception = RuntimeError("No attempts made")
 
-        except Exception as e:
-            if not use_json_mode:
-                raise
-            # JSON mode no soportado por este modelo → reintenta sin él
-            last_error = e
-            continue
+    # Retry up to 3 times with backoff (handles 429 rate limits on free models)
+    for attempt in range(3):
+        for use_json_mode in (True, False):
+            try:
+                kwargs: dict = dict(
+                    model=settings.llm_model,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.1,
+                    max_tokens=2000,
+                )
+                if use_json_mode:
+                    kwargs["response_format"] = {"type": "json_object"}
 
-    raise last_error  # type: ignore
+                response = await _client.chat.completions.create(**kwargs)
+                raw = response.choices[0].message.content or "{}"
+                data = _extract_json(raw)
+                return AnalysisResult(**data)
+
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+                if not use_json_mode:
+                    # JSON mode failed → try without it
+                    if "429" in err_str or "rate" in err_str.lower():
+                        # Rate limited — break inner loop and wait
+                        break
+                    raise
+                # JSON mode not supported → continue to non-JSON attempt
+                continue
+
+        # Rate limited — wait before retrying
+        if "429" in str(last_error) or "rate" in str(last_error).lower():
+            wait = 35 * (attempt + 1)  # 35s, 70s, 105s
+            await _asyncio.sleep(wait)
+        else:
+            raise last_error
+
+    raise last_error
