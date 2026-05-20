@@ -99,26 +99,35 @@ async def upload_paper(
 
 
 async def _process_paper(paper_id: str, user_id: str, metadata, full_text: str, pdf_bytes: bytes):
-    """Background task: chunk, embed, analyze, save results."""
+    """Background task: chunk, embed, analyze, save results.
+    All synchronous Supabase calls are wrapped in asyncio.to_thread() so
+    multiple papers can be processed concurrently without blocking the event loop.
+    """
+    import asyncio
     sb = _supabase()
+
+    async def db(fn):
+        """Run a synchronous Supabase call in the thread pool."""
+        return await asyncio.to_thread(fn)
+
     try:
-        # Chunk + embed
+        # Chunk + embed (embed_texts is already async via httpx)
         chunks = pdf_parser.chunk_text(full_text)
         await embeddings.store_chunks(paper_id, chunks)
 
-        # LLM analysis
+        # LLM analysis (AsyncOpenAI — already async)
         analysis = await llm_analyzer.analyze_paper(
             metadata.title, metadata.abstract, full_text
         )
 
-        # Save analysis to DB
-        sb.table("paper_analysis").insert(
+        # Save analysis to DB (sync → thread pool)
+        await db(lambda: sb.table("paper_analysis").insert(
             {
                 "paper_id": paper_id,
                 "trl_level": analysis.trl_score,
                 "trl_confidence": analysis.trl_confidence,
                 "trl_description": analysis.trl_description,
-                "startup_score": analysis.novelty_score,  # proxy for startup score
+                "startup_score": analysis.novelty_score,
                 "market_opportunity": analysis.tam_estimate.model_dump_json(),
                 "tam_estimate": str(analysis.tam_estimate.value),
                 "regulatory_complexity": analysis.risk_level,
@@ -128,31 +137,33 @@ async def _process_paper(paper_id: str, user_id: str, metadata, full_text: str, 
                 "extracted_claims": analysis.extracted_claims,
                 "raw_json": analysis.model_dump(),
             }
-        ).execute()
+        ).execute())
 
-        # Find similar papers
+        # Find similar papers via pgvector
         similar = await embeddings.find_similar_papers(paper_id, user_id)
         for item in similar:
             try:
                 sid = item.get("paper_id")
-                sim = item.get("similarity", 0.0)
+                sim = float(item.get("similarity", 0.0))
                 if sid and sim > 0.5:
-                    sb.table("paper_connections").upsert(
+                    await db(lambda s=sid, sm=sim: sb.table("paper_connections").upsert(
                         {
                             "paper_id_a": paper_id,
-                            "paper_id_b": sid,
-                            "similarity": sim,
+                            "paper_id_b": s,
+                            "similarity": sm,
                             "user_id": user_id,
                         }
-                    ).execute()
+                    ).execute())
             except Exception:
                 pass
 
         # Mark as analyzed
-        sb.table("papers").update({"status": "analyzed"}).eq("id", paper_id).execute()
+        await db(lambda: sb.table("papers").update({"status": "analyzed"}).eq("id", paper_id).execute())
 
     except Exception as e:
-        sb.table("papers").update({"status": "failed"}).eq("id", paper_id).execute()
+        await asyncio.to_thread(
+            lambda: sb.table("papers").update({"status": "failed"}).eq("id", paper_id).execute()
+        )
         print(f"Error processing paper {paper_id}: {e}")
 
 

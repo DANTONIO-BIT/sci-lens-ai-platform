@@ -48,6 +48,7 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
 
 async def store_chunks(paper_id: str, chunks: list[str]) -> None:
     """Genera embeddings para los chunks y los guarda en Supabase."""
+    import asyncio
     if not chunks:
         return
 
@@ -64,9 +65,13 @@ async def store_chunks(paper_id: str, chunks: list[str]) -> None:
         for idx, (text, vector) in enumerate(zip(chunks, vectors))
     ]
 
+    # Run synchronous Supabase inserts in thread pool — avoids blocking the event loop
     batch_size = 50
     for i in range(0, len(rows), batch_size):
-        supabase.table("paper_chunks").insert(rows[i : i + batch_size]).execute()
+        batch = rows[i : i + batch_size]
+        await asyncio.to_thread(
+            lambda b=batch: supabase.table("paper_chunks").insert(b).execute()
+        )
 
 
 async def embed_query(text: str) -> list[float]:
