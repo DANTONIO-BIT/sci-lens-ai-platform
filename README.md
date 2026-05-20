@@ -36,7 +36,7 @@ Built for **pharma R&D teams, biotech VCs, and innovation analysts** who need to
 | **AI — LLM** | OpenRouter (Llama 3.3 70B free / any model) |
 | **AI — Embeddings** | Jina AI `jina-embeddings-v3` (1024 dims · 1M tokens/month free) |
 | **Database** | Supabase (PostgreSQL + pgvector + Storage + Auth) |
-| **Deploy** | Vercel (frontend) + Railway (backend) |
+| **Deploy** | Vercel (frontend) + Fly.io (backend, always-on free tier) |
 | **Cost** | ~$0–5/month on free tiers |
 
 ---
@@ -137,28 +137,43 @@ gh repo create sci-lens-ai-platform --public --source=. --push
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxx.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...anon-key...` |
-| `NEXT_PUBLIC_API_URL` | Your Railway URL (add after Step 3) |
+| `NEXT_PUBLIC_API_URL` | Your Fly.io URL (add after Step 3) |
 | `NEXT_PUBLIC_DEMO_MODE` | `false` |
 
 4. Deploy → copy your Vercel URL (e.g. `https://sci-lens.vercel.app`)
 
-### Step 3 — Backend → Railway
+### Step 3 — Backend → Fly.io (no cold starts, always on)
 
-1. [railway.app](https://railway.app) → **New Project** → Deploy from GitHub repo
-2. Settings → **Root Directory**: `backend`
-3. Railway auto-detects the `Dockerfile`
-4. Add these variables:
+```bash
+# 1. Install Fly CLI (once)
+brew install flyctl          # macOS
+# or: curl -L https://fly.io/install.sh | sh
 
-| Variable | Value |
-|---|---|
-| `OPENROUTER_API_KEY` | `sk-or-v1-...` |
-| `LLM_MODEL` | `meta-llama/llama-3.3-70b-instruct:free` |
-| `JINA_API_KEY` | `jina_...` |
-| `SUPABASE_URL` | `https://xxxx.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...service-role-key...` |
-| `FRONTEND_URL` | Your Vercel URL |
+# 2. Login
+fly auth login
 
-5. Deploy → copy your Railway URL → paste into Vercel's `NEXT_PUBLIC_API_URL` → **Redeploy Vercel**
+# 3. Launch from the backend folder
+cd backend
+fly launch --name scilens-api --region iad --no-deploy
+
+# 4. Set secrets (env vars)
+fly secrets set \
+  OPENROUTER_API_KEY=sk-or-v1-... \
+  LLM_MODEL=meta-llama/llama-3.3-70b-instruct:free \
+  JINA_API_KEY=jina_... \
+  SUPABASE_URL=https://xxxx.supabase.co \
+  SUPABASE_SERVICE_ROLE_KEY=eyJ... \
+  FRONTEND_URL=https://sci-lens.vercel.app
+
+# 5. Deploy
+fly deploy
+```
+
+Your backend URL will be: `https://scilens-api.fly.dev`
+
+> **Free tier**: 3 shared VMs, 256MB RAM, `min_machines_running = 1` in `fly.toml` keeps it always alive — no cold starts.
+
+5. Copy `https://scilens-api.fly.dev` → paste into Vercel's `NEXT_PUBLIC_API_URL` → **Redeploy Vercel**
 
 ### Step 4 — Supabase Auth redirect URLs
 
@@ -169,7 +184,7 @@ Authentication → **URL Configuration**:
 ### Step 5 — Verify
 
 ```bash
-curl https://your-app.railway.app/health
+curl https://scilens-api.fly.dev/health
 # → {"status":"ok","service":"scilens-api"}
 ```
 
@@ -230,13 +245,13 @@ sci-lens-ai-platform/
 │   │   ├── services/            # pdf_parser, embeddings, llm_analyzer
 │   │   └── models/              # Pydantic schemas
 │   ├── Dockerfile               # Python 3.12 slim + PyMuPDF
+│   ├── fly.toml                 # Fly.io deploy config (always-on, no cold start)
 │   └── requirements.txt
 ├── supabase/
 │   └── migrations/
 │       └── 001_initial_schema.sql   # pgvector + all tables + RLS
 ├── middleware.ts                # Auth guard + demo mode bypass
-├── vercel.json                  # Vercel deploy config
-└── railway.toml                 # Railway deploy config
+└── vercel.json                  # Vercel deploy config
 ```
 
 ---
