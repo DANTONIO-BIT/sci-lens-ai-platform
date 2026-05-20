@@ -3,212 +3,294 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, CheckCircle2 } from 'lucide-react'
+import {
+  FileText, CheckCircle2, XCircle, Loader2, ArrowRight, Plus
+} from 'lucide-react'
 import { AppLayout } from '@/components/layout'
-import { Dropzone, ProcessingSteps, UploadProgress } from '@/components/upload'
+import { Dropzone } from '@/components/upload'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { uploadPaper, getPaperStatus } from '@/lib/api'
-import type { UploadState } from '@/lib/types'
 
-const POLL_INTERVAL_MS = 3000
-const POLL_MAX_ATTEMPTS = 60 // 3 min timeout
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+interface PaperJob {
+  localId: string        // browser-side UUID for React keys
+  file: File
+  status: 'uploading' | 'parsing' | 'analyzing' | 'complete' | 'error'
+  progress: number
+  paperId?: string       // backend UUID, available after upload
+  error?: string
+}
 
+const POLL_MS = 3000
+const MAX_POLLS = 60   // 3 min timeout
+const MAX_FILES = 5
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 export default function UploadPage() {
   const router = useRouter()
-  const [uploadState, setUploadState] = React.useState<UploadState>({
-    file: null,
-    status: 'idle',
-    progress: 0,
-    currentStep: 1,
-  })
-  const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const [jobs, setJobs] = React.useState<PaperJob[]>([])
+  const pollRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
 
-  const stopPolling = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current)
-      pollRef.current = null
+  // Cleanup all intervals on unmount
+  React.useEffect(() => {
+    return () => Object.values(pollRefs.current).forEach(clearInterval)
+  }, [])
+
+  const updateJob = (localId: string, patch: Partial<PaperJob>) =>
+    setJobs(prev => prev.map(j => j.localId === localId ? { ...j, ...patch } : j))
+
+  const stopPoll = (localId: string) => {
+    if (pollRefs.current[localId]) {
+      clearInterval(pollRefs.current[localId])
+      delete pollRefs.current[localId]
     }
   }
 
-  React.useEffect(() => () => stopPolling(), [])
-
-  const handleFileAccepted = async (file: File) => {
-    setUploadState({ file, status: 'uploading', progress: 10, currentStep: 1 })
+  const processPaper = async (job: PaperJob) => {
+    const { localId, file } = job
 
     try {
-      // Step 1 → 2: Upload to backend
+      // Step 1 — upload
+      updateJob(localId, { status: 'uploading', progress: 10 })
       const uploadResp = await uploadPaper(file)
-      setUploadState(prev => ({
-        ...prev,
-        status: 'parsing',
-        progress: 35,
-        currentStep: 2,
-        paperId: uploadResp.paper_id,
-      }))
 
-      // Step 3: Poll for analysis completion
-      setUploadState(prev => ({ ...prev, status: 'analyzing', progress: 55, currentStep: 3 }))
+      // Step 2 — parsing
+      updateJob(localId, { status: 'parsing', progress: 35, paperId: uploadResp.paper_id })
 
+      // Step 3 — poll for analysis
+      updateJob(localId, { status: 'analyzing', progress: 55 })
       let attempts = 0
-      pollRef.current = setInterval(async () => {
+
+      pollRefs.current[localId] = setInterval(async () => {
         attempts++
-        if (attempts > POLL_MAX_ATTEMPTS) {
-          stopPolling()
-          setUploadState(prev => ({ ...prev, status: 'error', error: 'Analysis timed out. Try again.' }))
+        if (attempts > MAX_POLLS) {
+          stopPoll(localId)
+          updateJob(localId, { status: 'error', error: 'Analysis timed out. Try again.' })
           return
         }
-
         try {
           const statusResp = await getPaperStatus(uploadResp.paper_id)
           if (statusResp.status === 'analyzed') {
-            stopPolling()
-            setUploadState(prev => ({
-              ...prev,
-              status: 'complete',
-              progress: 100,
-              currentStep: 4,
-            }))
+            stopPoll(localId)
+            updateJob(localId, { status: 'complete', progress: 100 })
           } else if (statusResp.status === 'failed') {
-            stopPolling()
-            setUploadState(prev => ({
-              ...prev,
-              status: 'error',
-              error: 'Analysis failed. Please try uploading again.',
-            }))
+            stopPoll(localId)
+            updateJob(localId, { status: 'error', error: 'Analysis failed. Please try again.' })
           } else {
-            setUploadState(prev => ({
-              ...prev,
-              progress: Math.min(prev.progress + 3, 90),
-            }))
+            updateJob(localId, prev => ({ progress: Math.min((prev.progress ?? 55) + 2, 92) }))
           }
         } catch {
-          // Network hiccup — keep polling
+          // network blip — keep polling
         }
-      }, POLL_INTERVAL_MS)
+      }, POLL_MS)
+
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upload failed'
-      setUploadState(prev => ({ ...prev, status: 'error', error: message }))
+      updateJob(localId, {
+        status: 'error',
+        error: err instanceof Error ? err.message : 'Upload failed',
+      })
     }
   }
 
-  const handleViewAnalysis = () => {
-    if (uploadState.paperId) {
-      router.push(`/analysis/${uploadState.paperId}`)
-    }
+  const handleFilesAccepted = (files: File[]) => {
+    const newJobs: PaperJob[] = files.map(file => ({
+      localId: crypto.randomUUID(),
+      file,
+      status: 'uploading',
+      progress: 0,
+    }))
+    setJobs(prev => [...prev, ...newJobs])
+    newJobs.forEach(job => processPaper(job))
   }
 
-  const handleUploadAnother = () => {
-    stopPolling()
-    setUploadState({ file: null, status: 'idle', progress: 0, currentStep: 1 })
+  const removeJob = (localId: string) => {
+    stopPoll(localId)
+    setJobs(prev => prev.filter(j => j.localId !== localId))
   }
+
+  const clearCompleted = () => {
+    jobs.filter(j => j.status === 'complete' || j.status === 'error')
+      .forEach(j => stopPoll(j.localId))
+    setJobs(prev => prev.filter(j => j.status !== 'complete' && j.status !== 'error'))
+  }
+
+  const activeJobs = jobs.filter(j => j.status !== 'complete' && j.status !== 'error')
+  const doneJobs = jobs.filter(j => j.status === 'complete' || j.status === 'error')
+  const canAddMore = activeJobs.length < MAX_FILES
 
   return (
-    <AppLayout title="Upload Paper">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <AppLayout title="Upload Papers">
+      <div className="max-w-3xl mx-auto space-y-6">
+
+        {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">
-            Analyze a Research Paper
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Analyze Research Papers</h1>
           <p className="text-muted-foreground">
-            Upload a PDF and get TRL scores, TAM estimates, and risk analysis in seconds.
+            Upload up to {MAX_FILES} PDFs at once — each is analyzed in parallel.
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Analysis Pipeline</CardTitle>
-            <CardDescription>
-              Your paper goes through our AI-powered analysis system
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProcessingSteps
-              currentStep={uploadState.currentStep}
-              status={uploadState.status}
-            />
-          </CardContent>
-        </Card>
+        {/* Dropzone — always visible if slots available */}
+        {canAddMore && (
+          <Card>
+            <CardContent className="pt-6">
+              <Dropzone
+                onFilesAccepted={handleFilesAccepted}
+                maxFiles={MAX_FILES - activeJobs.length}
+                disabled={!canAddMore}
+              />
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardContent className="pt-6">
-            <AnimatePresence mode="wait">
-              {uploadState.status === 'idle' && (
-                <motion.div key="dropzone" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <Dropzone onFileAccepted={handleFileAccepted} disabled={false} />
-                </motion.div>
-              )}
+        {/* Queue full notice */}
+        {!canAddMore && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="pt-4 pb-4 text-center text-sm text-primary">
+              {MAX_FILES} papers processing — wait for one to finish before adding more.
+            </CardContent>
+          </Card>
+        )}
 
-              {(['uploading', 'parsing', 'analyzing'] as const).some(s => s === uploadState.status) && (
-                <motion.div key="progress" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <UploadProgress
-                    progress={uploadState.progress}
-                    status={uploadState.status as 'uploading' | 'parsing' | 'analyzing'}
-                  />
-                </motion.div>
-              )}
+        {/* Active jobs */}
+        <AnimatePresence>
+          {activeJobs.length > 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Processing</CardTitle>
+                  <CardDescription>{activeJobs.length} paper{activeJobs.length > 1 ? 's' : ''} in queue</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {activeJobs.map(job => (
+                    <PaperJobRow key={job.localId} job={job} onRemove={removeJob} />
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-              {uploadState.status === 'error' && (
-                <motion.div
-                  key="error"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center py-8 space-y-4"
-                >
-                  <p className="text-destructive font-medium">{uploadState.error}</p>
-                  <Button variant="outline" onClick={handleUploadAnother}>Try again</Button>
-                </motion.div>
-              )}
-
-              {uploadState.status === 'complete' && (
-                <motion.div
-                  key="complete"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-8"
-                >
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                    className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-500/20 mb-4"
-                  >
-                    <CheckCircle2 className="h-10 w-10 text-green-500" />
-                  </motion.div>
-                  <h3 className="text-xl font-semibold mb-2">Analysis Complete!</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Your research paper has been successfully analyzed.
-                  </p>
-                  <div className="flex items-center justify-center gap-4">
-                    <Button onClick={handleViewAnalysis} size="lg">
-                      View Analysis
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" onClick={handleUploadAnother} size="lg">
-                      Upload Another
-                    </Button>
+        {/* Completed / failed jobs */}
+        <AnimatePresence>
+          {doneJobs.length > 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <Card>
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Done</CardTitle>
+                    <CardDescription>{doneJobs.length} paper{doneJobs.length > 1 ? 's' : ''} finished</CardDescription>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </CardContent>
-        </Card>
+                  <Button variant="ghost" size="sm" onClick={clearCompleted}>Clear all</Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {doneJobs.map(job => (
+                    <PaperJobRow
+                      key={job.localId}
+                      job={job}
+                      onRemove={removeJob}
+                      onView={id => router.push(`/analysis/${id}`)}
+                    />
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          {[
-            { title: 'Supported Formats', description: 'PDF files from arXiv, PubMed, journals, and preprints' },
-            { title: 'Processing Time', description: 'Most papers analyzed in under 30 seconds' },
-            { title: 'Data Security', description: 'Files encrypted in transit and stored in your private bucket' },
-          ].map((info) => (
-            <Card key={info.title} className="bg-muted/30">
-              <CardContent className="pt-4">
-                <h4 className="font-medium text-sm">{info.title}</h4>
-                <p className="text-xs text-muted-foreground mt-1">{info.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Empty state */}
+        {jobs.length === 0 && (
+          <div className="grid md:grid-cols-3 gap-4">
+            {[
+              { title: 'Batch Upload', description: `Upload up to ${MAX_FILES} PDFs simultaneously` },
+              { title: 'Processing Time', description: 'Most papers analyzed in under 60 seconds' },
+              { title: 'Data Security', description: 'Files encrypted in transit and stored privately' },
+            ].map(info => (
+              <Card key={info.title} className="bg-muted/30">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm">{info.title}</h4>
+                  <p className="text-xs text-muted-foreground mt-1">{info.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </AppLayout>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Single paper row — shows file name + progress + actions
+// ---------------------------------------------------------------------------
+function PaperJobRow({
+  job,
+  onRemove,
+  onView,
+}: {
+  job: PaperJob
+  onRemove: (id: string) => void
+  onView?: (paperId: string) => void
+}) {
+  const statusLabel: Record<PaperJob['status'], string> = {
+    uploading: 'Uploading…',
+    parsing: 'Extracting text…',
+    analyzing: 'AI analyzing…',
+    complete: 'Complete',
+    error: 'Failed',
+  }
+
+  const isActive = job.status !== 'complete' && job.status !== 'error'
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      className="flex items-center gap-3"
+    >
+      {/* Icon */}
+      <div className="shrink-0">
+        {job.status === 'complete' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+        {job.status === 'error' && <XCircle className="h-5 w-5 text-destructive" />}
+        {isActive && <Loader2 className="h-5 w-5 text-primary animate-spin" />}
+      </div>
+
+      {/* Info + progress */}
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium truncate">{job.file.name}</p>
+          <span className="text-xs text-muted-foreground shrink-0">{statusLabel[job.status]}</span>
+        </div>
+        {isActive && <Progress value={job.progress} className="h-1.5" />}
+        {job.status === 'error' && (
+          <p className="text-xs text-destructive">{job.error}</p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="shrink-0 flex gap-1">
+        {job.status === 'complete' && job.paperId && onView && (
+          <Button size="sm" variant="outline" onClick={() => onView(job.paperId!)}>
+            View <ArrowRight className="ml-1 h-3 w-3" />
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onRemove(job.localId)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          {isActive ? 'Cancel' : 'Dismiss'}
+        </Button>
+      </div>
+    </motion.div>
   )
 }
