@@ -1,12 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Routes accessible without auth — guests see demo data client-side
-const PUBLIC_ROUTES = [
-  '/', '/login', '/auth/callback',
-  '/dashboard', '/dashboard/papers', '/dashboard/top-tam',
-  '/projects', '/graph', '/help', '/upload',
-]
+const PUBLIC_ROUTES = ['/', '/login', '/auth/callback']
 
 // Demo mode: bypass auth entirely when NEXT_PUBLIC_DEMO_MODE=true
 // or when Supabase is not properly configured (placeholder values)
@@ -27,11 +22,10 @@ const isSupabaseConfigured = () => {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // /upload is public so guests can try uploading (anonymous auth handled client-side)
   const isPublic = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith('/auth/'),
-  ) || pathname.startsWith('/dashboard') || pathname.startsWith('/projects')
-    || pathname.startsWith('/analysis') || pathname.startsWith('/graph')
-    || pathname.startsWith('/help') || pathname.startsWith('/upload')
+  ) || pathname.startsWith('/upload')
 
   // Demo mode or Supabase not configured → allow all traffic through
   if (

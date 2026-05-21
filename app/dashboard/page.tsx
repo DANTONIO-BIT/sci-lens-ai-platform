@@ -11,8 +11,6 @@ import {
 } from '@/components/dashboard'
 import { listPapers, getPaperStats } from '@/lib/api'
 import { adaptApiPaper } from '@/lib/adapters'
-import { supabase } from '@/lib/supabase'
-import { DemoBanner } from '@/components/demo-banner'
 import type { Paper, DashboardStats } from '@/lib/types'
 
 function PaperSkeleton() {
@@ -49,21 +47,9 @@ export default function DashboardPage() {
     recentActivity: [],
   })
   const [loading, setLoading] = React.useState(true)
-  const [isGuest, setIsGuest] = React.useState(false)
 
   React.useEffect(() => {
     const load = async () => {
-      // No session → show demo data immediately, no API calls
-      const { data: { session } } = await supabase().auth.getSession()
-      if (!session) {
-        const { mockPapers, processingPapers, mockDashboardStats } = await import('@/lib/mock-data')
-        setPapers([...mockPapers, ...processingPapers])
-        setStats(mockDashboardStats)
-        setIsGuest(true)
-        setLoading(false)
-        return
-      }
-
       try {
         const apiStats = await getPaperStats()
         if (apiStats.total_papers > 0) {
@@ -139,7 +125,6 @@ export default function DashboardPage() {
   return (
     <AppLayout title="Dashboard">
       <div className="space-y-6">
-        {isGuest && <DemoBanner />}
         <StatsCards stats={stats} />
         <div className="grid gap-6 lg:grid-cols-3">
           <RecentPapers papers={papers} />

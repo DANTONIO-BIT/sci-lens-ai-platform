@@ -9,8 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { listPapers } from '@/lib/api'
 import { adaptApiPaper } from '@/lib/adapters'
-import { supabase } from '@/lib/supabase'
-import { DemoBanner } from '@/components/demo-banner'
 import type { Paper } from '@/lib/types'
 
 function getTrlColor(score: number): string {
@@ -31,24 +29,12 @@ function getRiskColor(level: string): string {
 export default function TopTAMPage() {
   const [papers, setPapers] = React.useState<Paper[]>([])
   const [loading, setLoading] = React.useState(true)
-  const [isGuest, setIsGuest] = React.useState(false)
 
   React.useEffect(() => {
-    const load = async () => {
-      const { data: { session } } = await supabase().auth.getSession()
-      if (!session) {
-        const { mockPapers } = await import('@/lib/mock-data')
-        setPapers(mockPapers)
-        setIsGuest(true)
-        setLoading(false)
-        return
-      }
-      try {
-        const resp = await listPapers()
-        if (resp.papers?.length) setPapers(resp.papers.map(adaptApiPaper))
-      } catch { /* empty */ } finally { setLoading(false) }
-    }
-    load()
+    listPapers()
+      .then(resp => { if (resp.papers?.length) setPapers(resp.papers.map(adaptApiPaper)) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const sorted = React.useMemo(
@@ -73,8 +59,6 @@ export default function TopTAMPage() {
             <p className="text-muted-foreground">Papers ranked by Total Addressable Market estimate</p>
           </div>
         </div>
-
-        {isGuest && <DemoBanner />}
 
         {loading ? (
           <div className="space-y-3">

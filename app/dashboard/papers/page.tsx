@@ -20,8 +20,6 @@ import {
 } from '@/components/ui/select'
 import { listPapers } from '@/lib/api'
 import { adaptApiPaper } from '@/lib/adapters'
-import { supabase } from '@/lib/supabase'
-import { DemoBanner } from '@/components/demo-banner'
 import type { Paper } from '@/lib/types'
 
 function getTrlColor(score: number): string {
@@ -42,33 +40,15 @@ function getRiskColor(level: string): string {
 export default function PapersPage() {
   const [papers, setPapers] = React.useState<Paper[]>([])
   const [loading, setLoading] = React.useState(true)
-  const [isGuest, setIsGuest] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
   const [riskFilter, setRiskFilter] = React.useState<string>('all')
 
   React.useEffect(() => {
-    const load = async () => {
-      const { data: { session } } = await supabase().auth.getSession()
-      if (!session) {
-        const { mockPapers, processingPapers } = await import('@/lib/mock-data')
-        setPapers([...mockPapers, ...processingPapers])
-        setIsGuest(true)
-        setLoading(false)
-        return
-      }
-      try {
-        const resp = await listPapers()
-        if (resp.papers && resp.papers.length > 0) {
-          setPapers(resp.papers.map(adaptApiPaper))
-        }
-      } catch {
-        // authenticated but API error — empty list
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    listPapers()
+      .then(resp => { if (resp.papers?.length) setPapers(resp.papers.map(adaptApiPaper)) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const filtered = papers.filter(p => {
@@ -113,7 +93,6 @@ export default function PapersPage() {
   return (
     <AppLayout title="All Papers">
       <div className="space-y-6">
-        {isGuest && <DemoBanner />}
         <div className="flex items-center gap-4">
           <Link href="/dashboard">
             <Button variant="ghost" size="sm" className="gap-2">

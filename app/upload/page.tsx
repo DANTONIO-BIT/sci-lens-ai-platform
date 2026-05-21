@@ -45,10 +45,18 @@ export default function UploadPage() {
   const [projects, setProjects] = React.useState<ProjectResponse[]>([])
   const [selectedProjectId, setSelectedProjectId] = React.useState<string>('none')
   const [isGuest, setIsGuest] = React.useState<boolean | null>(null)
+  const [guestUploadsUsed, setGuestUploadsUsed] = React.useState(0)
+
+  const GUEST_KEY = '_sl_guest_uploads'
+  const GUEST_MAX = 5
 
   React.useEffect(() => {
     supabase().auth.getSession().then(({ data: { session } }) => {
-      if (!session) { setIsGuest(true); return }
+      if (!session) {
+        setIsGuest(true)
+        setGuestUploadsUsed(parseInt(localStorage.getItem(GUEST_KEY) ?? '0'))
+        return
+      }
       setIsGuest(false)
       listProjects()
         .then((list) => setProjects(list.filter((p) => p.status === 'active')))
@@ -139,7 +147,25 @@ export default function UploadPage() {
     }
   }
 
-  const handleFilesAccepted = (files: File[]) => {
+  const handleFilesAccepted = async (files: File[]) => {
+    if (isGuest) {
+      const remaining = GUEST_MAX - guestUploadsUsed
+      if (remaining <= 0) return  // cap UI already hides dropzone
+      const allowed = files.slice(0, remaining)
+      // Auto sign-in anonymously so the API accepts the upload
+      const { error } = await supabase().auth.signInAnonymously()
+      if (error) { router.push('/login'); return }
+      const newCount = guestUploadsUsed + allowed.length
+      localStorage.setItem(GUEST_KEY, String(newCount))
+      setGuestUploadsUsed(newCount)
+      setIsGuest(false)
+      const newJobs: PaperJob[] = allowed.map(file => ({
+        localId: crypto.randomUUID(), file, status: 'uploading', progress: 0,
+      }))
+      setJobs(prev => [...prev, ...newJobs])
+      newJobs.forEach(job => processPaper(job))
+      return
+    }
     const newJobs: PaperJob[] = files.map(file => ({
       localId: crypto.randomUUID(),
       file,
@@ -177,24 +203,37 @@ export default function UploadPage() {
           </p>
         </div>
 
-        {/* Guest gate */}
-        {isGuest === true && (
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardContent className="pt-8 pb-8 text-center space-y-4">
-              <p className="text-lg font-medium">Sign in to upload papers</p>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Create a free account to upload PDFs and get AI-powered analysis: TRL score, TAM estimate, evidence quality, and regulatory pathway.
+        {/* Guest banner */}
+        {isGuest === true && guestUploadsUsed < GUEST_MAX && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="pt-4 pb-4 flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Try SciLens — <strong>{GUEST_MAX - guestUploadsUsed} free upload{GUEST_MAX - guestUploadsUsed !== 1 ? 's' : ''}</strong> remaining. No account needed.
               </p>
-              <Button onClick={() => router.push('/login')}>
-                Sign in or Create Account <ArrowRight className="ml-2 h-4 w-4" />
+              <Button size="sm" variant="outline" onClick={() => router.push('/login')}>
+                Sign in for unlimited <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Project selector */}
-        {isGuest === false && (<>
-        {projects.length > 0 && (
+        {/* Guest limit reached */}
+        {isGuest === true && guestUploadsUsed >= GUEST_MAX && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-8 pb-8 text-center space-y-4">
+              <p className="text-lg font-medium">Free limit reached</p>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                You've used your {GUEST_MAX} free uploads. Create an account to continue analyzing papers.
+              </p>
+              <Button onClick={() => router.push('/login')}>
+                Create free account <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Project selector — registered users only */}
+        {isGuest === false && projects.length > 0 && (
           <div className="flex items-center gap-3">
             <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="flex-1">
@@ -213,13 +252,13 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Dropzone — always visible if slots available */}
-        {canAddMore && (
+        {/* Dropzone — visible when slots available and (registered OR guest with quota) */}
+        {canAddMore && isGuest !== null && (isGuest === false || guestUploadsUsed < GUEST_MAX) && (
           <Card>
             <CardContent className="pt-6">
               <Dropzone
                 onFilesAccepted={handleFilesAccepted}
-                maxFiles={MAX_FILES - activeJobs.length}
+                maxFiles={isGuest ? Math.min(GUEST_MAX - guestUploadsUsed, MAX_FILES - activeJobs.length) : MAX_FILES - activeJobs.length}
                 disabled={!canAddMore}
               />
             </CardContent>
@@ -282,7 +321,7 @@ export default function UploadPage() {
         </AnimatePresence>
 
         {/* Empty state */}
-        {jobs.length === 0 && (
+        {jobs.length === 0 && isGuest !== null && (
           <div className="grid md:grid-cols-3 gap-4">
             {[
               { title: 'Batch Upload', description: `Upload up to ${MAX_FILES} PDFs simultaneously` },
@@ -298,7 +337,6 @@ export default function UploadPage() {
             ))}
           </div>
         )}
-        </>)}
       </div>
     </AppLayout>
   )
