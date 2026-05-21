@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Microscope, Mail, ArrowRight, CheckCircle2, Zap, Chrome } from 'lucide-react'
+import { Microscope, Mail, ArrowRight, CheckCircle2, Zap, Chrome, Github } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,6 +56,13 @@ function LoginContent() {
   const handleGoogle = async () => {
     await supabase().auth.signInWithOAuth({
       provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+  }
+
+  const handleGithub = async () => {
+    await supabase().auth.signInWithOAuth({
+      provider: 'github',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
   }
@@ -125,18 +132,19 @@ function LoginContent() {
               </motion.div>
             ) : (
               <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                {/* Google OAuth — no email rate limits */}
+                {/* OAuth — no email rate limits */}
                 {isSupabaseReady && (
                   <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={handleGoogle}
-                    >
-                      <Chrome className="mr-2 h-4 w-4" />
-                      Continue with Google
-                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button type="button" variant="outline" onClick={handleGoogle}>
+                        <Chrome className="mr-2 h-4 w-4" />
+                        Google
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleGithub}>
+                        <Github className="mr-2 h-4 w-4" />
+                        GitHub
+                      </Button>
+                    </div>
                     <div className="relative my-4">
                       <Separator />
                       <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
