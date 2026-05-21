@@ -126,6 +126,8 @@ async def create_project(
             "domain": body.domain,
         }).execute()
     )
+    if not resp or not resp.data:
+        raise HTTPException(status_code=500, detail="Failed to create project")
     d = resp.data[0]
     return ProjectResponse(
         id=d["id"], name=d["name"], description=d["description"],
@@ -191,7 +193,7 @@ async def get_project(
         .single()
         .execute()
     )
-    if not proj_resp.data:
+    if not proj_resp or not proj_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
     proj = proj_resp.data
 
@@ -270,7 +272,7 @@ async def update_project(
         .eq("user_id", user_id)
         .execute()
     )
-    if not resp.data:
+    if not resp or not resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
     d = resp.data[0]
     return ProjectResponse(

@@ -46,7 +46,7 @@ def _check_duplicate(sb, user_id: str, file_hash: str, doi: str | None) -> dict 
             .maybe_single()
             .execute()
         )
-        if resp.data:
+        if resp and resp.data:
             return resp.data
 
     # Check by DOI
@@ -59,7 +59,7 @@ def _check_duplicate(sb, user_id: str, file_hash: str, doi: str | None) -> dict 
             .maybe_single()
             .execute()
         )
-        if resp.data:
+        if resp and resp.data:
             return resp.data
 
     return None
@@ -231,7 +231,7 @@ async def get_paper_status(
         .single()
         .execute()
     )
-    if not resp.data:
+    if not resp or not resp.data:
         raise HTTPException(status_code=404, detail="Paper not found")
     d = resp.data
     return PaperStatus(paper_id=d["id"], status=d["status"], title=d.get("title"))

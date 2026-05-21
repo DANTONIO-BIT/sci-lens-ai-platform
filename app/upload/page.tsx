@@ -107,7 +107,6 @@ export default function UploadPage() {
           if (statusResp.status === 'analyzed') {
             stopPoll(localId)
             updateJob(localId, { status: 'complete', progress: 100 })
-            // Auto-assign to selected project if any
             if (selectedProjectId && selectedProjectId !== 'none') {
               addPaperToProject(selectedProjectId, uploadResp.paper_id).catch(() => {})
             }
@@ -115,7 +114,11 @@ export default function UploadPage() {
             stopPoll(localId)
             updateJob(localId, { status: 'error', error: 'Analysis failed. Please try again.' })
           } else {
-            updateJob(localId, { progress: Math.min((job.progress ?? 55) + 2, 92) })
+            setJobs(prev => prev.map(j =>
+              j.localId === localId
+                ? { ...j, progress: Math.min((j.progress ?? 55) + 2, 92) }
+                : j
+            ))
           }
         } catch {
           // network blip — keep polling
@@ -163,7 +166,6 @@ export default function UploadPage() {
       const newCount = guestUploadsUsed + allowed.length
       localStorage.setItem(GUEST_KEY, String(newCount))
       setGuestUploadsUsed(newCount)
-      setIsGuest(false)
       const newJobs: PaperJob[] = allowed.map(file => ({
         localId: crypto.randomUUID(), file, status: 'uploading', progress: 0,
       }))
