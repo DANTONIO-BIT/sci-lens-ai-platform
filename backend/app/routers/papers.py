@@ -225,12 +225,12 @@ async def list_papers(authorization: str | None = Header(default=None)):
 
     papers_resp = (
         sb.table("papers")
-        .select("id, title, authors, status, created_at, file_name")
+        .select("id, title, authors, status, created_at, file_name, paper_analysis(trl_level, tam_estimate, regulatory_complexity, raw_json)")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .execute()
     )
-    # Flatten paper_analysis embed: Supabase returns it as a list, take first item
+    # Flatten paper_analysis embed: Supabase returns it as a nested list
     papers = []
     for p in (papers_resp.data or []):
         pa = p.pop("paper_analysis", None)

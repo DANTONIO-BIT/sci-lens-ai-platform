@@ -109,7 +109,7 @@ export const getPaper = (paperId: string) =>
   apiFetch<PaperDetail>(`/papers/${paperId}`)
 
 export const listPapers = () =>
-  apiFetch<{ papers: PaperDetail['paper'][] }>('/papers/')
+  apiFetch<{ papers: Array<PaperDetail['paper'] & { analysis?: PaperDetail['analysis'] | null }> }>('/papers/')
 
 // ---------------------------------------------------------------------------
 // Graph
