@@ -8,61 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { listPapers } from '@/lib/api'
-import { mockPapers } from '@/lib/mock-data'
-import type { Paper, Analysis } from '@/lib/types'
+import { adaptApiPaper } from '@/lib/adapters'
+import type { Paper } from '@/lib/types'
 
-const adaptApiPaper = (p: {
-  id: string
-  title: string
-  authors: string[]
-  status: string
-  created_at: string
-  file_name: string
-  analysis?: {
-    trl_level?: number | null
-    tam_estimate?: string | null
-    regulatory_complexity?: string | null
-    raw_json?: Record<string, unknown> | null
-  } | null
-}): Paper => {
-  const a = p.analysis
-  const raw = (a?.raw_json ?? {}) as Record<string, unknown>
-  const tamRaw = raw.tam_estimate as Record<string, unknown> | undefined
-  const tamValue = tamRaw
-    ? Number(tamRaw.value ?? 0)
-    : parseFloat(a?.tam_estimate ?? '0') || 0
-
-  return {
-    id: p.id,
-    title: p.title,
-    authors: p.authors ?? [],
-    abstract: '',
-    uploadedAt: new Date(p.created_at),
-    status: (p.status as Paper['status']) ?? 'processing',
-    analysis: a ? {
-      trlScore: a.trl_level ?? (raw.trl_score as number) ?? 0,
-      trlConfidence: (raw.trl_confidence as number) ?? 0,
-      trlDescription: (raw.trl_description as string) ?? '',
-      tamEstimate: { value: tamValue, currency: 'USD', breakdown: [] },
-      riskLevel: (a.regulatory_complexity as Analysis['riskLevel']) ?? (raw.risk_level as Analysis['riskLevel']) ?? 'medium',
-      riskScore: (raw.risk_score as number) ?? 0,
-      riskFactors: [],
-      keyFindings: [],
-      evidenceQuality: { level: 'other', score: 0, sampleSizeAdequacy: 'unknown', statisticalRigor: 'low', reproducibilitySignals: 'none' },
-      domain: (raw.domain as string) ?? '',
-      regulatoryPathway: (raw.regulatory_pathway as string) ?? '',
-      regulatoryTimeline: (raw.regulatory_timeline as string) ?? '',
-      methodology: (raw.methodology as Analysis['methodology']) ?? 'experimental',
-      methodologyScore: (raw.methodology_score as number) ?? 0,
-      citations: 0,
-      impactScore: (raw.impact_score as number) ?? 0,
-      noveltyScore: (raw.novelty_score as number) ?? 0,
-      similarPapers: [],
-      tags: (raw.tags as string[]) ?? [],
-      analyzedAt: new Date(),
-    } : undefined,
-  }
-}
+const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
 
 function getTrlColor(score: number): string {
   if (score >= 7) return 'bg-trl-high/15 text-trl-high'
@@ -85,14 +34,20 @@ export default function TopTAMPage() {
 
   React.useEffect(() => {
     listPapers()
-      .then((resp) => {
+      .then(async (resp) => {
         if (resp.papers?.length) {
           setPapers(resp.papers.map(adaptApiPaper))
-        } else {
+        } else if (isDemoMode) {
+          const { mockPapers } = await import('@/lib/mock-data')
           setPapers(mockPapers)
         }
       })
-      .catch(() => setPapers(mockPapers))
+      .catch(async () => {
+        if (isDemoMode) {
+          const { mockPapers } = await import('@/lib/mock-data')
+          setPapers(mockPapers)
+        }
+      })
       .finally(() => setLoading(false))
   }, [])
 
