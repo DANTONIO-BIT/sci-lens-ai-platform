@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { uploadPaper, getPaperStatus, listProjects, addPaperToProject, ProjectResponse } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -43,12 +44,16 @@ export default function UploadPage() {
   const pollRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
   const [projects, setProjects] = React.useState<ProjectResponse[]>([])
   const [selectedProjectId, setSelectedProjectId] = React.useState<string>('none')
+  const [isGuest, setIsGuest] = React.useState<boolean | null>(null)
 
-  // Load active projects for the selector
   React.useEffect(() => {
-    listProjects()
-      .then((list) => setProjects(list.filter((p) => p.status === 'active')))
-      .catch(() => {})
+    supabase().auth.getSession().then(({ data: { session } }) => {
+      if (!session) { setIsGuest(true); return }
+      setIsGuest(false)
+      listProjects()
+        .then((list) => setProjects(list.filter((p) => p.status === 'active')))
+        .catch(() => {})
+    })
   }, [])
 
   // Cleanup all intervals on unmount
@@ -172,7 +177,23 @@ export default function UploadPage() {
           </p>
         </div>
 
+        {/* Guest gate */}
+        {isGuest === true && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-8 pb-8 text-center space-y-4">
+              <p className="text-lg font-medium">Sign in to upload papers</p>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                Create a free account to upload PDFs and get AI-powered analysis: TRL score, TAM estimate, evidence quality, and regulatory pathway.
+              </p>
+              <Button onClick={() => router.push('/login')}>
+                Sign in or Create Account <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Project selector */}
+        {isGuest === false && (<>
         {projects.length > 0 && (
           <div className="flex items-center gap-3">
             <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -277,6 +298,7 @@ export default function UploadPage() {
             ))}
           </div>
         )}
+        </>)}
       </div>
     </AppLayout>
   )

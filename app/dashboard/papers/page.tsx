@@ -20,9 +20,9 @@ import {
 } from '@/components/ui/select'
 import { listPapers } from '@/lib/api'
 import { adaptApiPaper } from '@/lib/adapters'
+import { supabase } from '@/lib/supabase'
+import { DemoBanner } from '@/components/demo-banner'
 import type { Paper } from '@/lib/types'
-
-const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
 
 function getTrlColor(score: number): string {
   if (score >= 7) return 'bg-trl-high/15 text-trl-high'
@@ -42,25 +42,28 @@ function getRiskColor(level: string): string {
 export default function PapersPage() {
   const [papers, setPapers] = React.useState<Paper[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [isGuest, setIsGuest] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
   const [riskFilter, setRiskFilter] = React.useState<string>('all')
 
   React.useEffect(() => {
     const load = async () => {
+      const { data: { session } } = await supabase().auth.getSession()
+      if (!session) {
+        const { mockPapers, processingPapers } = await import('@/lib/mock-data')
+        setPapers([...mockPapers, ...processingPapers])
+        setIsGuest(true)
+        setLoading(false)
+        return
+      }
       try {
         const resp = await listPapers()
         if (resp.papers && resp.papers.length > 0) {
           setPapers(resp.papers.map(adaptApiPaper))
-        } else if (isDemoMode) {
-          const { mockPapers, processingPapers } = await import('@/lib/mock-data')
-          setPapers([...mockPapers, ...processingPapers])
         }
       } catch {
-        if (isDemoMode) {
-          const { mockPapers, processingPapers } = await import('@/lib/mock-data')
-          setPapers([...mockPapers, ...processingPapers])
-        }
+        // authenticated but API error — empty list
       } finally {
         setLoading(false)
       }
@@ -110,6 +113,7 @@ export default function PapersPage() {
   return (
     <AppLayout title="All Papers">
       <div className="space-y-6">
+        {isGuest && <DemoBanner />}
         <div className="flex items-center gap-4">
           <Link href="/dashboard">
             <Button variant="ghost" size="sm" className="gap-2">

@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { NewProjectDialog } from '@/components/projects/new-project-dialog'
 import { listProjects, ProjectResponse } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
+import { DemoBanner } from '@/components/demo-banner'
 import { Plus, FolderOpen, FlaskConical, ArrowRight, Loader2 } from 'lucide-react'
 
 const DOMAIN_LABELS: Record<string, string> = {
@@ -33,10 +35,28 @@ const DOMAIN_COLORS: Record<string, string> = {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectResponse[]>([])
   const [loading, setLoading] = useState(true)
+  const [isGuest, setIsGuest] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const load = () => {
+  const load = async () => {
     setLoading(true)
+    const { data: { session } } = await supabase().auth.getSession()
+    if (!session) {
+      const { mockProjects } = await import('@/lib/mock-data')
+      // Convert ResearchProject → ProjectResponse shape
+      setProjects(mockProjects.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        domain: p.domain,
+        status: p.status,
+        created_at: p.createdAt,
+        paper_count: p.paperCount,
+      })))
+      setIsGuest(true)
+      setLoading(false)
+      return
+    }
     listProjects()
       .then(setProjects)
       .catch(() => setProjects([]))
@@ -58,11 +78,15 @@ export default function ProjectsPage() {
               Group papers into research initiatives and track portfolio metrics
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Project
-          </Button>
+          {!isGuest && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
+          )}
         </div>
+
+        {isGuest && <DemoBanner />}
 
         {loading ? (
           <div className="flex justify-center py-16">

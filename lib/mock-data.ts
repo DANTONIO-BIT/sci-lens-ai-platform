@@ -412,3 +412,38 @@ export function getTopPapersByTAM(count: number = 5): Paper[] {
     .sort((a, b) => (b.analysis?.tamEstimate.value || 0) - (a.analysis?.tamEstimate.value || 0))
     .slice(0, count)
 }
+
+// ---------------------------------------------------------------------------
+// Demo projects — shown to unauthenticated visitors
+// ---------------------------------------------------------------------------
+import type { ResearchProject } from './types'
+
+export const mockProjects: ResearchProject[] = [
+  {
+    id: 'proj-demo-001',
+    name: 'Oncology Pipeline — Phase II',
+    description: 'Tracking clinical evidence for immuno-oncology compounds across Phase II trials',
+    domain: 'pharma_clinical',
+    status: 'active',
+    paperCount: 4,
+    createdAt: '2024-01-10T00:00:00Z',
+  },
+  {
+    id: 'proj-demo-002',
+    name: 'CRISPR Therapeutic Applications',
+    description: 'Consolidated view of gene-editing papers relevant to rare disease pipeline',
+    domain: 'biotech',
+    status: 'active',
+    paperCount: 2,
+    createdAt: '2024-02-15T00:00:00Z',
+  },
+  {
+    id: 'proj-demo-003',
+    name: 'Agro-Biopesticide R&D',
+    description: 'EU/US regulatory pathway assessment for novel biopesticide candidates',
+    domain: 'agro_health',
+    status: 'archived',
+    paperCount: 3,
+    createdAt: '2023-11-01T00:00:00Z',
+  },
+]
