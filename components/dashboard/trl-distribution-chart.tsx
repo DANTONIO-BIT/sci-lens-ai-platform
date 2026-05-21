@@ -16,7 +16,7 @@ interface TrlDistributionChartProps {
 }
 
 export function TrlDistributionChart({ papers }: TrlDistributionChartProps) {
-  const analyzedPapers = papers.filter(p => p.analysis)
+  const analyzedPapers = papers.filter(p => p.analysis !== undefined)
   
   const distribution = [
     { name: 'TRL 1-3 (Early)', value: 0, color: 'var(--trl-low)' },

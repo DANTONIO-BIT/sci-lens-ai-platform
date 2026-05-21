@@ -24,12 +24,11 @@ const adaptAnalysis = (a: RawAnalysis): Analysis | undefined => {
   if (!a) return undefined
   const raw = (a.raw_json ?? {}) as Record<string, unknown>
   const trl = a.trl_level ?? (raw.trl_score as number) ?? 0
-  if (!trl) return undefined
 
   const tamRaw = raw.tam_estimate as Record<string, unknown> | undefined
   return {
     trlScore: trl,
-    trlConfidence: (raw.trl_confidence as number) ?? 0,
+    trlConfidence: (raw.trl_confidence as number) ?? (a.trl_confidence as number) ?? 0,
     trlDescription: (raw.trl_description as string) ?? '',
     tamEstimate: tamRaw
       ? { value: Number(tamRaw.value ?? 0), currency: String(tamRaw.currency ?? 'USD'), breakdown: (tamRaw.breakdown as Analysis['tamEstimate']['breakdown']) ?? [] }

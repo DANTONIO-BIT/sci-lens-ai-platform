@@ -225,7 +225,7 @@ async def list_papers(authorization: str | None = Header(default=None)):
 
     papers_resp = (
         sb.table("papers")
-        .select("id, title, authors, status, created_at, file_name, paper_analysis(trl_level, tam_estimate, regulatory_complexity, raw_json)")
+        .select("id, title, authors, status, created_at, file_name, paper_analysis!paper_analysis_paper_id_fkey(trl_level, trl_confidence, tam_estimate, regulatory_complexity, raw_json)")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .execute()

@@ -55,7 +55,7 @@ export function RecentPapers({ papers }: RecentPapersProps) {
           >
             <div className="group flex items-start gap-4 p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors">
               {/* TRL Score Indicator */}
-              {paper.analysis && (
+              {paper.analysis !== undefined && (
                 <div className="flex flex-col items-center shrink-0">
                   <div className={cn(
                     'w-12 h-12 rounded-lg flex items-center justify-center font-mono font-bold text-xl',
@@ -82,7 +82,7 @@ export function RecentPapers({ papers }: RecentPapersProps) {
                   {paper.authors.length > 2 && ` +${paper.authors.length - 2}`}
                 </p>
                 
-                {paper.analysis && (
+                {paper.analysis !== undefined && (
                   <div className="flex items-center gap-3 mt-2">
                     <Badge 
                       variant="outline" 
