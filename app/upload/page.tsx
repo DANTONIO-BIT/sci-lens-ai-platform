@@ -23,10 +23,11 @@ import { FolderOpen } from 'lucide-react'
 interface PaperJob {
   localId: string        // browser-side UUID for React keys
   file: File
-  status: 'uploading' | 'parsing' | 'analyzing' | 'complete' | 'error'
+  status: 'uploading' | 'parsing' | 'analyzing' | 'complete' | 'error' | 'duplicate'
   progress: number
   paperId?: string       // backend UUID, available after upload
   error?: string
+  existingPaperId?: string
 }
 
 const POLL_MS = 3000
@@ -100,7 +101,7 @@ export default function UploadPage() {
             stopPoll(localId)
             updateJob(localId, { status: 'error', error: 'Analysis failed. Please try again.' })
           } else {
-            updateJob(localId, prev => ({ progress: Math.min((prev.progress ?? 55) + 2, 92) }))
+            updateJob(localId, { progress: Math.min((job.progress ?? 55) + 2, 92) })
           }
         } catch {
           // network blip — keep polling
@@ -108,9 +109,27 @@ export default function UploadPage() {
       }, POLL_MS)
 
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Upload failed'
+      // Check for duplicate (409)
+      if (msg.includes('409')) {
+        try {
+          const detail = JSON.parse(msg.split('\n').pop() || '{}')
+          if (detail.duplicate) {
+            updateJob(localId, {
+              status: 'duplicate',
+              progress: 100,
+              error: `Already uploaded: ${detail.title}`,
+              existingPaperId: detail.existing_paper_id,
+            })
+            return
+          }
+        } catch {
+          // fallthrough to generic error
+        }
+      }
       updateJob(localId, {
         status: 'error',
-        error: err instanceof Error ? err.message : 'Upload failed',
+        error: msg,
       })
     }
   }
@@ -275,15 +294,17 @@ function PaperJobRow({
   onRemove: (id: string) => void
   onView?: (paperId: string) => void
 }) {
+  const router = useRouter()
   const statusLabel: Record<PaperJob['status'], string> = {
     uploading: 'Uploading…',
     parsing: 'Extracting text…',
     analyzing: 'AI analyzing…',
     complete: 'Complete',
     error: 'Failed',
+    duplicate: 'Duplicate',
   }
 
-  const isActive = job.status !== 'complete' && job.status !== 'error'
+  const isActive = job.status !== 'complete' && job.status !== 'error' && job.status !== 'duplicate'
 
   return (
     <motion.div
@@ -297,6 +318,7 @@ function PaperJobRow({
       <div className="shrink-0">
         {job.status === 'complete' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
         {job.status === 'error' && <XCircle className="h-5 w-5 text-destructive" />}
+        {job.status === 'duplicate' && <FileText className="h-5 w-5 text-yellow-500" />}
         {isActive && <Loader2 className="h-5 w-5 text-primary animate-spin" />}
       </div>
 
@@ -309,6 +331,19 @@ function PaperJobRow({
         {isActive && <Progress value={job.progress} className="h-1.5" />}
         {job.status === 'error' && (
           <p className="text-xs text-destructive">{job.error}</p>
+        )}
+        {job.status === 'duplicate' && job.existingPaperId && (
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-yellow-600 dark:text-yellow-400">{job.error}</p>
+            <Button
+              size="sm"
+              variant="link"
+              className="h-auto p-0 text-xs text-yellow-600 dark:text-yellow-400"
+              onClick={() => router.push(`/analysis/${job.existingPaperId}`)}
+            >
+              View existing <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
+          </div>
         )}
       </div>
 

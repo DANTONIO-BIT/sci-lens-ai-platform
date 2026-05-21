@@ -6,14 +6,28 @@ import {
   FileText, 
   DollarSign, 
   AlertTriangle,
-  Activity
+  Activity,
+  HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { DashboardStats } from '@/lib/types'
 
 interface StatsCardsProps {
   stats: DashboardStats
+}
+
+const TOOLTIPS: Record<string, string> = {
+  'Total Papers': 'Total papers uploaded. Analyzed papers have completed AI scoring for TRL, TAM and risk. Processing papers are queued for analysis.',
+  'Avg. TRL Score': 'Average Technology Readiness Level across analyzed papers (scale 1–9). TRL 1–3: basic research. TRL 4–6: lab/pilot validation. TRL 7–9: operational/commercial stage. FDA and EMA commonly require TRL 6+ before regulatory submission.',
+  'Total TAM': 'Sum of Total Addressable Market estimates across all analyzed papers (in USD billions). Derived by AI from market references in each paper. Use as directional signal, not financial projection.',
+  'High Risk': 'Papers flagged as high regulatory, technical or market risk by the AI. High risk does not mean low value — it signals areas requiring deeper due diligence before investment or development commitment.',
 }
 
 export function StatsCards({ stats }: StatsCardsProps) {
@@ -61,38 +75,50 @@ export function StatsCards({ stats }: StatsCardsProps) {
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card) => (
-        <Card key={card.title} className="relative overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {card.title}
-            </CardTitle>
-            <div className={cn('p-2 rounded-lg', card.bgColor)}>
-              <card.icon className={cn('h-4 w-4', card.color)} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold tracking-tight font-mono">
-              {card.value}
-            </div>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-muted-foreground">{card.subtitle}</p>
-              <div className={cn(
-                'flex items-center text-xs font-medium',
-                card.trendUp ? 'text-chart-2' : 'text-chart-2'
-              )}>
-                {card.trendUp ? (
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 mr-1" />
-                )}
-                {card.trend}
+    <TooltipProvider>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {cards.map((card) => (
+          <Card key={card.title} className="relative overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {card.title}
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                    {TOOLTIPS[card.title]}
+                  </TooltipContent>
+                </Tooltip>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+              <div className={cn('p-2 rounded-lg', card.bgColor)}>
+                <card.icon className={cn('h-4 w-4', card.color)} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold tracking-tight font-mono">
+                {card.value}
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">{card.subtitle}</p>
+                <div className={cn(
+                  'flex items-center text-xs font-medium',
+                  card.trendUp ? 'text-chart-2' : 'text-chart-2'
+                )}>
+                  {card.trendUp ? (
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3 mr-1" />
+                  )}
+                  {card.trend}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </TooltipProvider>
   )
 }

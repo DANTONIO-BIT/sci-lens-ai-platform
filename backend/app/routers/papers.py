@@ -2,6 +2,8 @@
 Papers router — upload, retrieve, list endpoints.
 """
 from __future__ import annotations
+import hashlib
+import json
 import uuid
 import asyncio
 from fastapi import APIRouter, UploadFile, File, HTTPException, Header
@@ -32,6 +34,37 @@ def _get_user_id(authorization: str | None) -> str:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
+def _check_duplicate(sb, user_id: str, file_hash: str, doi: str | None) -> dict | None:
+    """Check if a paper with the same file_hash or DOI already exists for this user."""
+    # Check by file hash
+    if file_hash:
+        resp = (
+            sb.table("papers")
+            .select("id, title")
+            .eq("user_id", user_id)
+            .eq("file_hash", file_hash)
+            .maybe_single()
+            .execute()
+        )
+        if resp.data:
+            return resp.data
+
+    # Check by DOI
+    if doi:
+        resp = (
+            sb.table("papers")
+            .select("id, title")
+            .eq("user_id", user_id)
+            .eq("doi", doi)
+            .maybe_single()
+            .execute()
+        )
+        if resp.data:
+            return resp.data
+
+    return None
+
+
 @router.post("/upload", response_model=UploadResponse)
 async def upload_paper(
     file: UploadFile = File(...),
@@ -49,8 +82,27 @@ async def upload_paper(
         )
 
     user_id = _get_user_id(authorization)
-    paper_id = str(uuid.uuid4())
     sb = _supabase()
+
+    # Calculate file hash for duplicate detection
+    file_hash = hashlib.sha256(pdf_bytes).hexdigest()
+
+    # Extract metadata to get DOI
+    metadata = pdf_parser.extract_metadata(pdf_bytes)
+
+    # Check for duplicates
+    existing = _check_duplicate(sb, user_id, file_hash, metadata.doi)
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=json.dumps({
+                "duplicate": True,
+                "existing_paper_id": existing["id"],
+                "title": existing["title"],
+            }),
+        )
+
+    paper_id = str(uuid.uuid4())
 
     # 1. Upload PDF to Supabase Storage
     storage_path = f"{user_id}/{paper_id}.pdf"
@@ -61,8 +113,7 @@ async def upload_paper(
     )
     file_url = sb.storage.from_("papers").get_public_url(storage_path)
 
-    # 2. Extract metadata + full text + sections
-    metadata = pdf_parser.extract_metadata(pdf_bytes)
+    # 2. Extract full text + sections
     full_text = pdf_parser.extract_full_text(pdf_bytes)
     sections = pdf_parser.extract_sections(full_text)
     priority_context = pdf_parser.build_priority_context(sections)
@@ -80,6 +131,7 @@ async def upload_paper(
             "doi": metadata.doi,
             "file_url": file_url,
             "file_name": file.filename,
+            "file_hash": file_hash,
             "status": "processing",
         }
     ).execute()
@@ -223,22 +275,28 @@ async def list_papers(authorization: str | None = Header(default=None)):
     user_id = _get_user_id(authorization)
     sb = _supabase()
 
+    # Two-query approach: papers + analysis separately (more reliable than FK embed)
     papers_resp = (
         sb.table("papers")
-        .select("id, title, authors, status, created_at, file_name, paper_analysis!paper_analysis_paper_id_fkey(trl_level, trl_confidence, tam_estimate, regulatory_complexity, raw_json)")
+        .select("id, title, authors, status, created_at, file_name")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .execute()
     )
-    # Flatten paper_analysis embed: Supabase returns it as a nested list
-    papers = []
-    for p in (papers_resp.data or []):
-        pa = p.pop("paper_analysis", None)
-        if isinstance(pa, list):
-            p["analysis"] = pa[0] if pa else None
-        elif isinstance(pa, dict):
-            p["analysis"] = pa
-        else:
-            p["analysis"] = None
-        papers.append(p)
+    papers = papers_resp.data or []
+    if not papers:
+        return {"papers": []}
+
+    paper_ids = [p["id"] for p in papers]
+    analysis_resp = (
+        sb.table("paper_analysis")
+        .select("paper_id, trl_level, trl_confidence, tam_estimate, regulatory_complexity, raw_json")
+        .in_("paper_id", paper_ids)
+        .execute()
+    )
+    analysis_map = {a["paper_id"]: a for a in (analysis_resp.data or [])}
+
+    for p in papers:
+        p["analysis"] = analysis_map.get(p["id"])
+
     return {"papers": papers}

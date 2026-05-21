@@ -1,6 +1,6 @@
 """
 Graph router — returns nodes and links for the Research Graph visualization.
-Populates node connections from paper_connections table.
+Uses two-query approach (papers + analysis separately) for reliability.
 """
 from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Header
@@ -10,10 +10,15 @@ from app.config import settings
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
-CLUSTER_COLORS = [
-    "#10b981", "#6366f1", "#f59e0b", "#ec4899",
-    "#8b5cf6", "#14b8a6", "#f97316", "#06b6d4",
-]
+DOMAIN_COLORS = {
+    "pharma_clinical": "#6366f1",
+    "pharma_industrial": "#3b82f6",
+    "biotech": "#22c55e",
+    "medical_device": "#06b6d4",
+    "chemicals": "#f59e0b",
+    "agro_health": "#84cc16",
+    "academic_basic": "#94a3b8",
+}
 
 
 def _supabase():
@@ -36,8 +41,7 @@ def _get_user_id(authorization: str | None) -> str:
 async def get_graph(authorization: str | None = Header(default=None)):
     """
     Return graph nodes (papers) and links (semantic connections) for the user.
-    Tags from raw_json are used to infer clusters; connections are populated
-    from the paper_connections table.
+    Domain from raw_json is used for cluster coloring.
     """
     user_id = _get_user_id(authorization)
     sb = _supabase()
@@ -56,10 +60,10 @@ async def get_graph(authorization: str | None = Header(default=None)):
     if not paper_ids:
         return {"nodes": [], "links": []}
 
-    # Fetch analyses for cluster/tag info
+    # Fetch analyses for domain/tag info
     analyses_resp = (
         sb.table("paper_analysis")
-        .select("paper_id, raw_json")
+        .select("paper_id, raw_json, trl_level")
         .in_("paper_id", paper_ids)
         .execute()
     )
@@ -67,7 +71,7 @@ async def get_graph(authorization: str | None = Header(default=None)):
     for a in analyses_resp.data or []:
         analysis_map[a["paper_id"]] = a.get("raw_json") or {}
 
-    # Fetch connections to populate node connections lists
+    # Fetch connections
     connections_resp = (
         sb.table("paper_connections")
         .select("paper_id_a, paper_id_b, similarity")
@@ -90,28 +94,26 @@ async def get_graph(authorization: str | None = Header(default=None)):
             "type": "semantic",
         })
 
-    # Build cluster mapping from tags
-    cluster_map: dict[str, str] = {}
-    color_idx = 0
+    # Build nodes
     nodes = []
     for paper in papers:
         pid = paper["id"]
         raw = analysis_map.get(pid, {})
+        trl = raw.get("trl_score") or analysis_map.get(pid, {}).get("trl_level", 6)
+        domain = raw.get("domain", "academic_basic")
         tags: list[str] = raw.get("tags", [])
-        domain = raw.get("domain", "")
-        primary_tag = tags[0] if tags else (domain.replace("_", " ").title() if domain else "General")
-
-        if primary_tag not in cluster_map:
-            cluster_map[primary_tag] = CLUSTER_COLORS[color_idx % len(CLUSTER_COLORS)]
-            color_idx += 1
+        cluster_name = tags[0] if tags else domain.replace("_", " ").title()
+        cluster_color = DOMAIN_COLORS.get(domain, "#94a3b8")
 
         nodes.append({
             "id": pid,
             "label": (paper.get("title") or "Untitled")[:40],
-            "cluster": primary_tag,
-            "clusterColor": cluster_map[primary_tag],
-            "relevance": raw.get("impact_score", 60),
+            "cluster": cluster_name,
+            "clusterColor": cluster_color,
+            "relevance": (trl or 6) * 10,
             "connections": connection_map.get(pid, []),
+            "domain": domain,
+            "trl": trl,
         })
 
     return {"nodes": nodes, "links": links}

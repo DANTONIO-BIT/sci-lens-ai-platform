@@ -4,6 +4,9 @@ import * as React from 'react'
 import { AppLayout } from '@/components/layout'
 import { ResearchGraph, ClusterLegend } from '@/components/graph'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { FilePlus } from 'lucide-react'
+import Link from 'next/link'
 import { mockGraphNodes, mockGraphLinks, mockClusters } from '@/lib/mock-data'
 import { getGraph } from '@/lib/api'
 import type { GraphNode, GraphLink, GraphCluster } from '@/lib/types'
@@ -13,17 +16,24 @@ export default function GraphPage() {
   const [links, setLinks] = React.useState<GraphLink[]>(mockGraphLinks)
   const [clusters, setClusters] = React.useState<GraphCluster[]>(mockClusters)
   const [selectedCluster, setSelectedCluster] = React.useState<string | undefined>()
+  const [loading, setLoading] = React.useState(true)
+  const [hasRealData, setHasRealData] = React.useState(false)
 
   React.useEffect(() => {
     const load = async () => {
       try {
         const data = await getGraph()
         if (data.nodes && data.nodes.length > 0) {
-          setNodes(data.nodes as GraphNode[])
-          setLinks(data.links as GraphLink[])
+          setHasRealData(true)
+          const adaptedNodes = data.nodes.map(n => ({
+            ...n,
+            connections: n.connections || [],
+          }))
+          setNodes(adaptedNodes)
+          setLinks(data.links || [])
           // Derive clusters from unique cluster names in nodes
           const clusterMap = new Map<string, { color: string; count: number }>()
-          data.nodes.forEach(n => {
+          data.nodes.forEach((n: GraphNode) => {
             const existing = clusterMap.get(n.cluster)
             if (existing) {
               existing.count++
@@ -42,6 +52,8 @@ export default function GraphPage() {
         }
       } catch {
         // Demo mode — keep mock data
+      } finally {
+        setLoading(false)
       }
     }
     load()
@@ -59,6 +71,31 @@ export default function GraphPage() {
       l => nodeIds.has(l.source as string) && nodeIds.has(l.target as string)
     )
   }, [links, selectedCluster, filteredNodes])
+
+  if (loading) {
+    return (
+      <AppLayout title="Research Graph">
+        <div className="flex items-center justify-center h-96">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (!hasRealData && nodes.length === 0) {
+    return (
+      <AppLayout title="Research Graph">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <FilePlus className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">No papers to visualize</p>
+          <p className="text-muted-foreground mt-1 mb-4">Upload at least 2 papers to see connections</p>
+          <Link href="/upload">
+            <Button>Upload papers</Button>
+          </Link>
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout title="Research Graph">
