@@ -6,6 +6,7 @@ import type {
   GraphCluster,
   DashboardStats,
   ActivityItem,
+  ResearchProject,
 } from './types'
 
 const defaultEvidence = (level: Analysis['evidenceQuality']['level'], score: number): Analysis['evidenceQuality'] => ({
@@ -416,8 +417,6 @@ export function getTopPapersByTAM(count: number = 5): Paper[] {
 // ---------------------------------------------------------------------------
 // Demo projects — shown to unauthenticated visitors
 // ---------------------------------------------------------------------------
-import type { ResearchProject } from './types'
-
 export const mockProjects: ResearchProject[] = [
   {
     id: 'proj-demo-001',
