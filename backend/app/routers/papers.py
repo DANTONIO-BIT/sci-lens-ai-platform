@@ -230,4 +230,10 @@ async def list_papers(authorization: str | None = Header(default=None)):
         .order("created_at", desc=True)
         .execute()
     )
-    return {"papers": papers_resp.data or []}
+    # Flatten paper_analysis embed: Supabase returns it as a list, take first item
+    papers = []
+    for p in (papers_resp.data or []):
+        pa = p.pop("paper_analysis", None)
+        p["analysis"] = pa[0] if isinstance(pa, list) and pa else None
+        papers.append(p)
+    return {"papers": papers}
