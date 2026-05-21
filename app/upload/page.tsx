@@ -46,6 +46,7 @@ export default function UploadPage() {
   const [selectedProjectId, setSelectedProjectId] = React.useState<string>('none')
   const [isGuest, setIsGuest] = React.useState<boolean | null>(null)
   const [guestUploadsUsed, setGuestUploadsUsed] = React.useState(0)
+  const [guestAuthError, setGuestAuthError] = React.useState('')
 
   const GUEST_KEY = '_sl_guest_uploads'
   const GUEST_MAX = 5
@@ -154,7 +155,11 @@ export default function UploadPage() {
       const allowed = files.slice(0, remaining)
       // Auto sign-in anonymously so the API accepts the upload
       const { error } = await supabase().auth.signInAnonymously()
-      if (error) { router.push('/login'); return }
+      if (error) {
+        setGuestAuthError('Could not start session. Please sign in to upload.')
+        return
+      }
+      setGuestAuthError('')
       const newCount = guestUploadsUsed + allowed.length
       localStorage.setItem(GUEST_KEY, String(newCount))
       setGuestUploadsUsed(newCount)
@@ -202,6 +207,16 @@ export default function UploadPage() {
             Upload up to {MAX_FILES} PDFs at once — each is analyzed in parallel.
           </p>
         </div>
+
+        {/* Guest auth error */}
+        {guestAuthError && (
+          <Card className="border-destructive/30 bg-destructive/5">
+            <CardContent className="pt-4 pb-4 flex items-center justify-between gap-4">
+              <p className="text-sm text-destructive">{guestAuthError}</p>
+              <Button size="sm" onClick={() => router.push('/login')}>Sign in</Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Guest banner */}
         {isGuest === true && guestUploadsUsed < GUEST_MAX && (

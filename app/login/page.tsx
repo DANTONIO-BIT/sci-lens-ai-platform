@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Microscope, Mail, ArrowRight, CheckCircle2, Zap } from 'lucide-react'
+import { Microscope, Mail, ArrowRight, CheckCircle2, Zap, Chrome } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -51,6 +51,13 @@ function LoginContent() {
 
   const handleDemo = () => {
     router.push('/upload')
+  }
+
+  const handleGoogle = async () => {
+    await supabase().auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
   }
 
   return (
@@ -118,6 +125,27 @@ function LoginContent() {
               </motion.div>
             ) : (
               <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                {/* Google OAuth — no email rate limits */}
+                {isSupabaseReady && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleGoogle}
+                    >
+                      <Chrome className="mr-2 h-4 w-4" />
+                      Continue with Google
+                    </Button>
+                    <div className="relative my-4">
+                      <Separator />
+                      <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                        or
+                      </span>
+                    </div>
+                  </>
+                )}
+
                 {/* Magic Link form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {(error || authError) && (
