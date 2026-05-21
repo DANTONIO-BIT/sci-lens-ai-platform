@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { ArrowLeft, Search, Filter } from 'lucide-react'
 import { AppLayout } from '@/components/layout'
+import { ExportButton } from '@/components/export/export-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -116,10 +117,23 @@ export default function PapersPage() {
               Back
             </Button>
           </Link>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold tracking-tight">Paper Library</h1>
             <p className="text-muted-foreground">Browse and filter all analyzed papers</p>
           </div>
+          <ExportButton
+            options={[
+              {
+                label: 'Excel Export',
+                description: `${papers.filter(p => p.analysis).length} analyzed papers`,
+                icon: 'excel',
+                onClick: async () => {
+                  const { exportPapersExcel } = await import('@/lib/export-excel')
+                  await exportPapersExcel(papers.filter(p => p.analysis))
+                },
+              },
+            ]}
+          />
         </div>
 
         {/* Filters */}

@@ -15,6 +15,7 @@ import {
 } from '@/lib/api'
 import { ProjectMetrics, ProjectPaper } from '@/lib/types'
 import { ArrowLeft, Plus, Archive, Loader2 } from 'lucide-react'
+import { ExportButton } from '@/components/export/export-button'
 
 const DOMAIN_LABELS: Record<string, string> = {
   pharma_clinical: 'Pharma Clinical',
@@ -147,6 +148,31 @@ export default function ProjectDetailPage({ params }: PageProps) {
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
+            <ExportButton
+              options={[
+                {
+                  label: 'Excel Portfolio',
+                  description: 'All papers with metrics',
+                  icon: 'excel',
+                  onClick: async () => {
+                    const { exportProjectExcel } = await import('@/lib/export-excel')
+                    await exportProjectExcel(
+                      {
+                        id: project.id,
+                        name: project.name,
+                        description: project.description,
+                        domain: project.domain as import('@/lib/types').DomainType,
+                        status: project.status as 'active' | 'archived',
+                        paperCount: project.paper_count,
+                        createdAt: project.created_at,
+                      },
+                      metrics,
+                      papers,
+                    )
+                  },
+                },
+              ]}
+            />
             <Button variant="outline" size="sm" onClick={handleArchive}>
               <Archive className="h-3.5 w-3.5 mr-1.5" />
               {project.status === 'active' ? 'Archive' : 'Restore'}

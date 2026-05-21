@@ -4,7 +4,7 @@ import * as React from 'react'
 import { use } from 'react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-import { ArrowLeft, Calendar, Users, BookOpen, ExternalLink, Download, Share2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Calendar, Users, BookOpen, ExternalLink, Share2, Loader2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout'
 import {
   TrlGauge,
@@ -14,6 +14,7 @@ import {
   AnalysisRadarChart,
   MethodologyBadge,
 } from '@/components/analysis'
+import { ExportButton } from '@/components/export/export-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -72,6 +73,7 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
 
   const [paper, setPaper] = React.useState<Paper | null>(null)
   const [analysis, setAnalysis] = React.useState<Analysis | null>(null)
+  const [rawJson, setRawJson] = React.useState<Record<string, unknown>>({})
   const [isLoading, setIsLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -92,7 +94,9 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
             status: detail.paper.status as Paper['status'],
           })
           if (detail.analysis?.raw_json) {
-            setAnalysis(adaptApiAnalysis(detail.analysis.raw_json as Record<string, unknown>))
+            const rj = detail.analysis.raw_json as Record<string, unknown>
+            setAnalysis(adaptApiAnalysis(rj))
+            setRawJson(rj)
           }
           setIsLoading(false)
           return
@@ -188,14 +192,19 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm">
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
+            <ExportButton
+              options={[
+                {
+                  label: 'PDF Report',
+                  description: 'Full analysis for stakeholders',
+                  icon: 'pdf',
+                  onClick: async () => {
+                    const { exportPaperPDF } = await import('@/lib/export-pdf')
+                    await exportPaperPDF(paper!, analysis!, rawJson.synthesis as string | undefined)
+                  },
+                },
+              ]}
+            />
             {paper.doi && (
               <Button variant="outline" size="sm" asChild>
                 <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noopener noreferrer">
