@@ -22,10 +22,10 @@ const isSupabaseConfigured = () => {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // /upload is public so guests can try uploading (anonymous auth handled client-side)
+  // /upload and /analysis are public — guests can upload anonymously and view their results
   const isPublic = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith('/auth/'),
-  ) || pathname.startsWith('/upload')
+  ) || pathname.startsWith('/upload') || pathname.startsWith('/analysis')
 
   // Demo mode or Supabase not configured → allow all traffic through
   if (

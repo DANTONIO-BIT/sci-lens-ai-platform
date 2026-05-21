@@ -17,7 +17,7 @@ export default function HomePage() {
           </Link>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <Link href="/dashboard">
+            <Link href="/login">
               <Button>
                 Launch App
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -51,9 +51,9 @@ export default function HomePage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/dashboard">
+              <Link href="/login">
                 <Button size="lg" variant="outline" className="text-base px-8">
-                  View Demo Dashboard
+                  Sign In
                 </Button>
               </Link>
             </div>

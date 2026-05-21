@@ -50,7 +50,7 @@ function LoginContent() {
   }
 
   const handleDemo = () => {
-    router.push('/dashboard')
+    router.push('/upload')
   }
 
   return (
@@ -172,7 +172,7 @@ function LoginContent() {
                   onClick={handleDemo}
                 >
                   <Zap className="mr-2 h-4 w-4 text-primary" />
-                  Explorar demo sin cuenta
+                  Try without account — upload a paper
                 </Button>
               </motion.div>
             )}
@@ -181,7 +181,7 @@ function LoginContent() {
       </Card>
 
       <p className="text-center text-xs text-muted-foreground">
-        El demo usa datos de ejemplo. Para análisis reales de PDFs, activa Supabase.
+        No account needed to try — upload up to 5 PDFs for free.
       </p>
     </div>
   )
