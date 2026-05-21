@@ -8,6 +8,14 @@ import type {
   ActivityItem,
 } from './types'
 
+const defaultEvidence = (level: Analysis['evidenceQuality']['level'], score: number): Analysis['evidenceQuality'] => ({
+  level,
+  score,
+  sampleSizeAdequacy: score > 60 ? 'adequate' : score > 30 ? 'underpowered' : 'unknown',
+  statisticalRigor: score > 70 ? 'high' : score > 40 ? 'medium' : 'low',
+  reproducibilitySignals: score > 75 ? 'strong' : score > 50 ? 'moderate' : 'weak',
+})
+
 // Mock Papers with full analysis data
 export const mockPapers: Paper[] = [
   {
@@ -46,6 +54,10 @@ export const mockPapers: Paper[] = [
         { title: 'Scalable Manufacturing', description: 'Process can be adapted for commercial-scale production', confidence: 75, category: 'application' },
         { title: 'Limited Patient Population', description: 'Initial focus on ultra-rare diseases limits market size', confidence: 90, category: 'limitation' },
       ],
+      evidenceQuality: defaultEvidence('in_vitro', 65),
+      domain: 'biotech',
+      regulatoryPathway: 'FDA CBER → BLA (gene therapy)',
+      regulatoryTimeline: '5-7 years from current stage',
       methodology: 'experimental',
       methodologyScore: 89,
       citations: 127,
@@ -91,6 +103,10 @@ export const mockPapers: Paper[] = [
         { title: 'Novel Drug Candidates', description: '12 new candidates identified for further testing', confidence: 78, category: 'application' },
         { title: 'Hardware Dependency', description: 'Results dependent on specific quantum hardware architecture', confidence: 95, category: 'limitation' },
       ],
+      evidenceQuality: defaultEvidence('in_silico', 45),
+      domain: 'academic_basic',
+      regulatoryPathway: 'Not applicable — computational tool',
+      regulatoryTimeline: 'N/A',
       methodology: 'computational',
       methodologyScore: 82,
       citations: 89,
@@ -137,6 +153,10 @@ export const mockPapers: Paper[] = [
         { title: 'Strong Immune Response', description: '95% seroconversion rate in preclinical studies', confidence: 91, category: 'innovation' },
         { title: 'Manufacturing Scale', description: 'Billion-dose annual capacity achievable', confidence: 82, category: 'opportunity' },
       ],
+      evidenceQuality: defaultEvidence('in_vivo', 82),
+      domain: 'biotech',
+      regulatoryPathway: 'FDA CBER → BLA / EMA Centralized',
+      regulatoryTimeline: '2-3 years to approval',
       methodology: 'experimental',
       methodologyScore: 94,
       citations: 312,
@@ -182,6 +202,10 @@ export const mockPapers: Paper[] = [
         { title: 'Minimal Surgical Risk', description: 'No major complications in 12 patients', confidence: 92, category: 'application' },
         { title: 'Training Requirements', description: 'Average 6 weeks of training needed for proficiency', confidence: 88, category: 'limitation' },
       ],
+      evidenceQuality: defaultEvidence('cohort', 72),
+      domain: 'medical_device',
+      regulatoryPathway: 'FDA PMA (Class III) / CE Mark MDR',
+      regulatoryTimeline: '3-5 years to market',
       methodology: 'experimental',
       methodologyScore: 91,
       citations: 156,
@@ -227,6 +251,10 @@ export const mockPapers: Paper[] = [
         { title: 'Carbon Negative', description: 'Net negative carbon footprint in production', confidence: 82, category: 'innovation' },
         { title: 'Cost Parity', description: 'Approaching cost parity with petroleum at scale', confidence: 71, category: 'opportunity' },
       ],
+      evidenceQuality: defaultEvidence('in_vitro', 55),
+      domain: 'chemicals',
+      regulatoryPathway: 'EPA TSCA / REACH registration',
+      regulatoryTimeline: '2-4 years for commercial scale',
       methodology: 'experimental',
       methodologyScore: 85,
       citations: 78,
@@ -273,6 +301,10 @@ export const mockPapers: Paper[] = [
         { title: 'Cost Effective', description: '$500 per test, suitable for annual screening', confidence: 85, category: 'application' },
         { title: 'Integration Ready', description: 'Compatible with existing lab infrastructure', confidence: 91, category: 'opportunity' },
       ],
+      evidenceQuality: defaultEvidence('cohort', 88),
+      domain: 'medical_device',
+      regulatoryPathway: 'FDA De Novo / 510(k) with predicate',
+      regulatoryTimeline: '1-2 years to clearance',
       methodology: 'observational',
       methodologyScore: 92,
       citations: 234,
@@ -307,46 +339,35 @@ export const mockClusters: GraphCluster[] = [
 ]
 
 export const mockGraphNodes: GraphNode[] = [
-  // Biotech cluster
   { id: 'paper-001', label: 'CRISPR Gene Editing', cluster: 'biotech', clusterColor: '#10b981', relevance: 85, connections: ['paper-003', 'paper-005'] },
   { id: 'paper-003', label: 'mRNA Vaccine Platform', cluster: 'biotech', clusterColor: '#10b981', relevance: 95, connections: ['paper-001', 'paper-006'] },
   { id: 'n-biotech-1', label: 'CAR-T Cell Therapy', cluster: 'biotech', clusterColor: '#10b981', relevance: 72, connections: ['paper-001'] },
   { id: 'n-biotech-2', label: 'Synthetic Biology', cluster: 'biotech', clusterColor: '#10b981', relevance: 68, connections: ['paper-001', 'paper-005'] },
   { id: 'n-biotech-3', label: 'Protein Engineering', cluster: 'biotech', clusterColor: '#10b981', relevance: 65, connections: ['paper-003'] },
-  // AI/ML cluster
-  { id: 'paper-006', label: 'AI Cancer Detection', cluster: 'ai-ml', clusterColor: '#6366f1', relevance: 93, connections: ['paper-003', 'paper-002'] },
-  { id: 'paper-002', label: 'Quantum Drug Discovery', cluster: 'ai-ml', clusterColor: '#6366f1', relevance: 72, connections: ['paper-006', 'paper-004'] },
-  { id: 'n-ai-1', label: 'Medical Imaging AI', cluster: 'ai-ml', clusterColor: '#6366f1', relevance: 78, connections: ['paper-006'] },
-  { id: 'n-ai-2', label: 'Drug Interaction Prediction', cluster: 'ai-ml', clusterColor: '#6366f1', relevance: 62, connections: ['paper-002'] },
-  // Energy cluster
-  { id: 'paper-005', label: 'Algae Biofuel', cluster: 'energy', clusterColor: '#f59e0b', relevance: 76, connections: ['paper-001', 'n-energy-1'] },
+  { id: 'paper-006', label: 'AI Cancer Detection', cluster: 'medical', clusterColor: '#ec4899', relevance: 93, connections: ['paper-003', 'paper-004'] },
+  { id: 'paper-004', label: 'Neural Interface', cluster: 'medical', clusterColor: '#ec4899', relevance: 88, connections: ['paper-006'] },
+  { id: 'n-medical-1', label: 'Implantable Sensors', cluster: 'medical', clusterColor: '#ec4899', relevance: 65, connections: ['paper-004'] },
+  { id: 'paper-002', label: 'Quantum Drug Discovery', cluster: 'quantum', clusterColor: '#8b5cf6', relevance: 72, connections: ['paper-004'] },
+  { id: 'n-quantum-1', label: 'Quantum Cryptography', cluster: 'quantum', clusterColor: '#8b5cf6', relevance: 58, connections: ['paper-002'] },
+  { id: 'paper-005', label: 'Algae Biofuel', cluster: 'energy', clusterColor: '#f59e0b', relevance: 76, connections: ['n-energy-1'] },
   { id: 'n-energy-1', label: 'Solar Cell Efficiency', cluster: 'energy', clusterColor: '#f59e0b', relevance: 82, connections: ['paper-005'] },
   { id: 'n-energy-2', label: 'Grid Storage', cluster: 'energy', clusterColor: '#f59e0b', relevance: 70, connections: ['n-energy-1'] },
-  // Medical cluster
-  { id: 'paper-004', label: 'Neural Interface', cluster: 'medical', clusterColor: '#ec4899', relevance: 88, connections: ['paper-002'] },
-  { id: 'n-medical-1', label: 'Implantable Sensors', cluster: 'medical', clusterColor: '#ec4899', relevance: 65, connections: ['paper-004'] },
-  // Quantum cluster
-  { id: 'n-quantum-1', label: 'Quantum Cryptography', cluster: 'quantum', clusterColor: '#8b5cf6', relevance: 58, connections: ['paper-002'] },
-  { id: 'n-quantum-2', label: 'Quantum Sensing', cluster: 'quantum', clusterColor: '#8b5cf6', relevance: 52, connections: ['n-quantum-1'] },
 ]
 
 export const mockGraphLinks: GraphLink[] = [
   { source: 'paper-001', target: 'paper-003', strength: 0.8, type: 'semantic' },
   { source: 'paper-001', target: 'paper-005', strength: 0.6, type: 'semantic' },
   { source: 'paper-003', target: 'paper-006', strength: 0.7, type: 'citation' },
-  { source: 'paper-002', target: 'paper-006', strength: 0.5, type: 'semantic' },
+  { source: 'paper-006', target: 'paper-004', strength: 0.5, type: 'semantic' },
   { source: 'paper-002', target: 'paper-004', strength: 0.6, type: 'semantic' },
   { source: 'paper-001', target: 'n-biotech-1', strength: 0.7, type: 'semantic' },
   { source: 'paper-001', target: 'n-biotech-2', strength: 0.5, type: 'semantic' },
   { source: 'paper-003', target: 'n-biotech-3', strength: 0.6, type: 'semantic' },
   { source: 'paper-005', target: 'n-biotech-2', strength: 0.4, type: 'semantic' },
-  { source: 'paper-006', target: 'n-ai-1', strength: 0.8, type: 'citation' },
-  { source: 'paper-002', target: 'n-ai-2', strength: 0.6, type: 'semantic' },
-  { source: 'paper-005', target: 'n-energy-1', strength: 0.5, type: 'semantic' },
-  { source: 'n-energy-1', target: 'n-energy-2', strength: 0.7, type: 'citation' },
   { source: 'paper-004', target: 'n-medical-1', strength: 0.8, type: 'citation' },
   { source: 'paper-002', target: 'n-quantum-1', strength: 0.4, type: 'semantic' },
-  { source: 'n-quantum-1', target: 'n-quantum-2', strength: 0.6, type: 'semantic' },
+  { source: 'paper-005', target: 'n-energy-1', strength: 0.5, type: 'semantic' },
+  { source: 'n-energy-1', target: 'n-energy-2', strength: 0.7, type: 'citation' },
 ]
 
 // Dashboard statistics

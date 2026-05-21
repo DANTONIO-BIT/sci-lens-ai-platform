@@ -26,6 +26,10 @@ export interface Analysis {
   riskScore: number // 0-100
   riskFactors: RiskFactor[]
   keyFindings: KeyFinding[]
+  evidenceQuality: EvidenceQuality
+  domain: string
+  regulatoryPathway: string
+  regulatoryTimeline: string
   methodology: MethodologyType
   methodologyScore: number // 0-100
   citations: number
@@ -34,6 +38,14 @@ export interface Analysis {
   similarPapers: string[] // IDs
   tags: string[]
   analyzedAt: Date
+}
+
+export interface EvidenceQuality {
+  level: 'meta_analysis' | 'rct' | 'cohort' | 'case_control' | 'in_vivo' | 'in_vitro' | 'in_silico' | 'review' | 'other'
+  score: number // 0-100
+  sampleSizeAdequacy: 'adequate' | 'underpowered' | 'unknown'
+  statisticalRigor: 'high' | 'medium' | 'low'
+  reproducibilitySignals: 'strong' | 'moderate' | 'weak' | 'none'
 }
 
 export interface TamBreakdown {
@@ -127,4 +139,65 @@ export interface TimeSeriesPoint {
   date: string
   value: number
   label?: string
+}
+
+// ---------------------------------------------------------------------------
+// Research Project Portfolio
+// ---------------------------------------------------------------------------
+
+export type DomainType =
+  | 'pharma_clinical'
+  | 'pharma_industrial'
+  | 'biotech'
+  | 'medical_device'
+  | 'chemicals'
+  | 'agro_health'
+  | 'academic_basic'
+
+export interface ResearchProject {
+  id: string
+  name: string
+  description: string
+  domain: DomainType
+  status: 'active' | 'archived'
+  paperCount: number
+  createdAt: string
+}
+
+export interface ProjectMetrics {
+  paperCount: number
+  analyzedCount: number
+  avgTrl: number
+  totalTamBillions: number
+  riskDistribution: Record<string, number>
+  evidenceQualityDistribution: Record<string, number>
+  regulatoryPathways: string[]
+  avgMethodologyScore: number
+  avgNoveltyScore: number
+  avgImpactScore: number
+}
+
+export interface ProjectPaper {
+  id: string
+  title: string
+  authors: string[]
+  status: string
+  year?: number
+  doi?: string
+  createdAt: string
+  analysis?: {
+    trlLevel: number
+    trlConfidence: number
+    tamEstimate: string
+    regulatoryComplexity: string
+    evidenceQuality?: EvidenceQuality
+    regulatoryPathway: string
+    rawJson?: Record<string, unknown>
+  }
+}
+
+export interface ProjectDetail {
+  project: ResearchProject
+  metrics: ProjectMetrics
+  papers: ProjectPaper[]
 }

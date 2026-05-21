@@ -1,5 +1,6 @@
 """
 Graph router — returns nodes and links for the Research Graph visualization.
+Populates node connections from paper_connections table.
 """
 from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Header
@@ -35,7 +36,8 @@ def _get_user_id(authorization: str | None) -> str:
 async def get_graph(authorization: str | None = Header(default=None)):
     """
     Return graph nodes (papers) and links (semantic connections) for the user.
-    Tags are used to infer clusters; color assigned per unique tag cluster.
+    Tags from raw_json are used to infer clusters; connections are populated
+    from the paper_connections table.
     """
     user_id = _get_user_id(authorization)
     sb = _supabase()
@@ -50,11 +52,11 @@ async def get_graph(authorization: str | None = Header(default=None)):
     )
     papers = papers_resp.data or []
 
-    # Fetch analyses for cluster/tag info
     paper_ids = [p["id"] for p in papers]
     if not paper_ids:
         return {"nodes": [], "links": []}
 
+    # Fetch analyses for cluster/tag info
     analyses_resp = (
         sb.table("paper_analysis")
         .select("paper_id, raw_json")
@@ -65,6 +67,29 @@ async def get_graph(authorization: str | None = Header(default=None)):
     for a in analyses_resp.data or []:
         analysis_map[a["paper_id"]] = a.get("raw_json") or {}
 
+    # Fetch connections to populate node connections lists
+    connections_resp = (
+        sb.table("paper_connections")
+        .select("paper_id_a, paper_id_b, similarity")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    connection_map: dict[str, list[str]] = {pid: [] for pid in paper_ids}
+    links = []
+    for c in (connections_resp.data or []):
+        a_id = c["paper_id_a"]
+        b_id = c["paper_id_b"]
+        if a_id in connection_map:
+            connection_map[a_id].append(b_id)
+        if b_id in connection_map:
+            connection_map[b_id].append(a_id)
+        links.append({
+            "source": a_id,
+            "target": b_id,
+            "strength": round(c.get("similarity", 0.0), 3),
+            "type": "semantic",
+        })
+
     # Build cluster mapping from tags
     cluster_map: dict[str, str] = {}
     color_idx = 0
@@ -73,38 +98,20 @@ async def get_graph(authorization: str | None = Header(default=None)):
         pid = paper["id"]
         raw = analysis_map.get(pid, {})
         tags: list[str] = raw.get("tags", [])
-        primary_tag = tags[0] if tags else "General"
+        domain = raw.get("domain", "")
+        primary_tag = tags[0] if tags else (domain.replace("_", " ").title() if domain else "General")
 
         if primary_tag not in cluster_map:
             cluster_map[primary_tag] = CLUSTER_COLORS[color_idx % len(CLUSTER_COLORS)]
             color_idx += 1
 
-        nodes.append(
-            {
-                "id": pid,
-                "label": (paper.get("title") or "Untitled")[:40],
-                "cluster": primary_tag,
-                "clusterColor": cluster_map[primary_tag],
-                "relevance": raw.get("impact_score", 60),
-                "connections": [],
-            }
-        )
-
-    # Fetch connections
-    connections_resp = (
-        sb.table("paper_connections")
-        .select("paper_id_a, paper_id_b, similarity")
-        .eq("user_id", user_id)
-        .execute()
-    )
-    links = [
-        {
-            "source": c["paper_id_a"],
-            "target": c["paper_id_b"],
-            "strength": round(c["similarity"], 3),
-            "type": "semantic",
-        }
-        for c in (connections_resp.data or [])
-    ]
+        nodes.append({
+            "id": pid,
+            "label": (paper.get("title") or "Untitled")[:40],
+            "cluster": primary_tag,
+            "clusterColor": cluster_map[primary_tag],
+            "relevance": raw.get("impact_score", 60),
+            "connections": connection_map.get(pid, []),
+        })
 
     return {"nodes": nodes, "links": links}

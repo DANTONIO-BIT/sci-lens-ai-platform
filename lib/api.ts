@@ -135,7 +135,85 @@ export interface GraphData {
 export const getGraph = () => apiFetch<GraphData>('/graph/')
 
 // ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+export interface PaperStats {
+  total_papers: number
+  analyzed_papers: number
+  avg_trl_score: number
+  total_tam_value: number
+  high_risk_count: number
+  domain_distribution: Record<string, number>
+  evidence_distribution: Record<string, number>
+}
+
+export const getPaperStats = () => apiFetch<PaperStats>('/papers/stats/')
+
+// ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------
 export const healthCheck = () =>
   apiFetch<{ status: string }>('/health')
+
+// ---------------------------------------------------------------------------
+// Research Projects
+// ---------------------------------------------------------------------------
+
+export interface ProjectResponse {
+  id: string
+  name: string
+  description: string
+  domain: string
+  status: string
+  created_at: string
+  paper_count: number
+}
+
+export interface ProjectMetricsResponse {
+  paper_count: number
+  analyzed_count: number
+  avg_trl: number
+  total_tam_billions: number
+  risk_distribution: Record<string, number>
+  evidence_quality_distribution: Record<string, number>
+  regulatory_pathways: string[]
+  avg_methodology_score: number
+  avg_novelty_score: number
+  avg_impact_score: number
+}
+
+export interface ProjectDetailResponse {
+  project: ProjectResponse
+  metrics: ProjectMetricsResponse
+  papers: Array<Record<string, unknown>>
+}
+
+export const createProject = (name: string, description: string, domain: string) =>
+  apiFetch<ProjectResponse>('/projects/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description, domain }),
+  })
+
+export const listProjects = () =>
+  apiFetch<ProjectResponse[]>('/projects/')
+
+export const getProject = (projectId: string) =>
+  apiFetch<ProjectDetailResponse>(`/projects/${projectId}`)
+
+export const updateProject = (projectId: string, data: { name?: string; description?: string; status?: string }) =>
+  apiFetch<ProjectResponse>(`/projects/${projectId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+
+export const deleteProject = (projectId: string) =>
+  apiFetch<void>(`/projects/${projectId}`, { method: 'DELETE' })
+
+export const addPaperToProject = (projectId: string, paperId: string) =>
+  apiFetch<{ status: string }>(`/projects/${projectId}/papers/${paperId}`, { method: 'POST' })
+
+export const removePaperFromProject = (projectId: string, paperId: string) =>
+  apiFetch<void>(`/projects/${projectId}/papers/${paperId}`, { method: 'DELETE' })

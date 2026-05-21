@@ -15,9 +15,15 @@ interface RecentPapersProps {
 }
 
 function getTrlColor(score: number): string {
-  if (score >= 7) return 'bg-trl-high text-trl-high'
-  if (score >= 4) return 'bg-trl-mid text-trl-mid'
-  return 'bg-trl-low text-trl-low'
+  if (score >= 7) return 'text-trl-high'
+  if (score >= 4) return 'text-trl-mid'
+  return 'text-trl-low'
+}
+
+function getTrlBg(score: number): string {
+  if (score >= 7) return 'bg-trl-high/15'
+  if (score >= 4) return 'bg-trl-mid/15'
+  return 'bg-trl-low/15'
 }
 
 function getRiskColor(level: 'low' | 'medium' | 'high'): string {
@@ -53,9 +59,9 @@ export function RecentPapers({ papers }: RecentPapersProps) {
                 <div className="flex flex-col items-center shrink-0">
                   <div className={cn(
                     'w-12 h-12 rounded-lg flex items-center justify-center font-mono font-bold text-xl',
-                    getTrlColor(paper.analysis.trlScore).replace('text-', 'bg-').replace('bg-bg', 'bg') + '/15'
+                    getTrlBg(paper.analysis.trlScore)
                   )}>
-                    <span className={getTrlColor(paper.analysis.trlScore).split(' ')[1]}>
+                    <span className={getTrlColor(paper.analysis.trlScore)}>
                       {paper.analysis.trlScore}
                     </span>
                   </div>

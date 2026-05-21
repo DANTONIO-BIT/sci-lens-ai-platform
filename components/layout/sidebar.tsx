@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  Microscope, 
-  LayoutDashboard, 
-  Upload, 
-  Network, 
+import {
+  Microscope,
+  LayoutDashboard,
+  Upload,
+  Network,
   FileText,
+  FolderOpen,
   Settings,
   HelpCircle,
   ChevronLeft,
@@ -30,6 +31,7 @@ interface SidebarProps {
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/upload', label: 'Upload Paper', icon: Upload },
   { href: '/graph', label: 'Research Graph', icon: Network },
 ]

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import papers, graph
+from app.routers import papers, graph, stats, projects
 
 app = FastAPI(
     title="SciLens API",
@@ -20,6 +20,8 @@ app.add_middleware(
 
 app.include_router(papers.router)
 app.include_router(graph.router)
+app.include_router(stats.router)
+app.include_router(projects.router)
 
 
 @app.get("/health")

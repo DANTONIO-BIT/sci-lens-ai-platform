@@ -10,7 +10,7 @@ import {
   TrlDistributionChart,
 } from '@/components/dashboard'
 import { mockPapers, processingPapers, mockDashboardStats } from '@/lib/mock-data'
-import { listPapers } from '@/lib/api'
+import { listPapers, getPaperStats } from '@/lib/api'
 import type { Paper, DashboardStats } from '@/lib/types'
 
 const adaptApiPaper = (p: {
@@ -36,17 +36,31 @@ export default function DashboardPage() {
   React.useEffect(() => {
     const load = async () => {
       try {
+        // Try real stats first
+        const apiStats = await getPaperStats()
+        if (apiStats.total_papers > 0) {
+          setStats({
+            totalPapers: apiStats.total_papers,
+            analyzedPapers: apiStats.analyzed_papers,
+            avgTrlScore: apiStats.avg_trl_score,
+            totalTamValue: apiStats.total_tam_value,
+            highRiskCount: apiStats.high_risk_count,
+            recentActivity: [],
+          })
+        }
+      } catch {
+        // Backend unavailable — keep mock stats
+      }
+
+      try {
         const resp = await listPapers()
         if (resp.papers && resp.papers.length > 0) {
           const realPapers = resp.papers.map(adaptApiPaper)
-          const analyzed = realPapers.filter(p => p.status === 'analyzed').length
           setPapers(realPapers)
-          setStats({
-            totalPapers: realPapers.length,
-            analyzedPapers: analyzed,
-            avgTrlScore: mockDashboardStats.avgTrlScore,
-            totalTamValue: mockDashboardStats.totalTamValue,
-            highRiskCount: mockDashboardStats.highRiskCount,
+
+          // Update activity from real papers
+          setStats(prev => ({
+            ...prev,
             recentActivity: realPapers.slice(0, 5).map((p, i) => ({
               id: `act-${i}`,
               type: (p.status === 'analyzed' ? 'analysis' : 'upload') as 'analysis' | 'upload',
@@ -55,7 +69,7 @@ export default function DashboardPage() {
               timestamp: p.uploadedAt,
               description: p.status === 'analyzed' ? 'Analysis completed' : 'Paper uploaded',
             })),
-          })
+          }))
         }
       } catch {
         // Backend unavailable — show demo mock data

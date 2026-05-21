@@ -11,7 +11,11 @@ import { Dropzone } from '@/components/upload'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { uploadPaper, getPaperStatus } from '@/lib/api'
+import { uploadPaper, getPaperStatus, listProjects, addPaperToProject, ProjectResponse } from '@/lib/api'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { FolderOpen } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,6 +40,15 @@ export default function UploadPage() {
   const router = useRouter()
   const [jobs, setJobs] = React.useState<PaperJob[]>([])
   const pollRefs = React.useRef<Record<string, ReturnType<typeof setInterval>>>({})
+  const [projects, setProjects] = React.useState<ProjectResponse[]>([])
+  const [selectedProjectId, setSelectedProjectId] = React.useState<string>('none')
+
+  // Load active projects for the selector
+  React.useEffect(() => {
+    listProjects()
+      .then((list) => setProjects(list.filter((p) => p.status === 'active')))
+      .catch(() => {})
+  }, [])
 
   // Cleanup all intervals on unmount
   React.useEffect(() => {
@@ -79,6 +92,10 @@ export default function UploadPage() {
           if (statusResp.status === 'analyzed') {
             stopPoll(localId)
             updateJob(localId, { status: 'complete', progress: 100 })
+            // Auto-assign to selected project if any
+            if (selectedProjectId && selectedProjectId !== 'none') {
+              addPaperToProject(selectedProjectId, uploadResp.paper_id).catch(() => {})
+            }
           } else if (statusResp.status === 'failed') {
             stopPoll(localId)
             updateJob(localId, { status: 'error', error: 'Analysis failed. Please try again.' })
@@ -135,6 +152,26 @@ export default function UploadPage() {
             Upload up to {MAX_FILES} PDFs at once — each is analyzed in parallel.
           </p>
         </div>
+
+        {/* Project selector */}
+        {projects.length > 0 && (
+          <div className="flex items-center gap-3">
+            <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex-1">
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Assign to a project (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
 
         {/* Dropzone — always visible if slots available */}
         {canAddMore && (

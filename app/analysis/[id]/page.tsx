@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { getPaperById } from '@/lib/mock-data'
 import { getPaper } from '@/lib/api'
-import type { Paper, Analysis } from '@/lib/types'
+import type { Paper, Analysis, EvidenceQuality } from '@/lib/types'
 
 interface AnalysisPageProps {
   params: Promise<{ id: string }>
@@ -29,24 +29,43 @@ interface AnalysisPageProps {
 // ---------------------------------------------------------------------------
 // Adapter: map backend raw_json → frontend Analysis type
 // ---------------------------------------------------------------------------
-const adaptApiAnalysis = (raw: Record<string, unknown>): Analysis => ({
-  trlScore: (raw.trl_score as number) ?? 1,
-  trlConfidence: (raw.trl_confidence as number) ?? 50,
-  trlDescription: (raw.trl_description as string) ?? '',
-  tamEstimate: raw.tam_estimate as Analysis['tamEstimate'] ?? { value: 0, currency: 'USD', breakdown: [] },
-  riskLevel: (raw.risk_level as Analysis['riskLevel']) ?? 'medium',
-  riskScore: (raw.risk_score as number) ?? 50,
-  riskFactors: (raw.risk_factors as Analysis['riskFactors']) ?? [],
-  keyFindings: (raw.key_findings as Analysis['keyFindings']) ?? [],
-  methodology: (raw.methodology as Analysis['methodology']) ?? 'experimental',
-  methodologyScore: (raw.methodology_score as number) ?? 70,
-  citations: 0,
-  impactScore: (raw.impact_score as number) ?? 50,
-  noveltyScore: (raw.novelty_score as number) ?? 50,
-  similarPapers: [],
-  tags: (raw.tags as string[]) ?? [],
-  analyzedAt: new Date(),
-})
+const adaptApiAnalysis = (raw: Record<string, unknown>): Analysis => {
+  const eq = raw.evidence_quality as Record<string, unknown> | undefined
+  return {
+    trlScore: (raw.trl_score as number) ?? 1,
+    trlConfidence: (raw.trl_confidence as number) ?? 50,
+    trlDescription: (raw.trl_description as string) ?? '',
+    tamEstimate: raw.tam_estimate as Analysis['tamEstimate'] ?? { value: 0, currency: 'USD', breakdown: [] },
+    riskLevel: (raw.risk_level as Analysis['riskLevel']) ?? 'medium',
+    riskScore: (raw.risk_score as number) ?? 50,
+    riskFactors: (raw.risk_factors as Analysis['riskFactors']) ?? [],
+    keyFindings: (raw.key_findings as Analysis['keyFindings']) ?? [],
+    evidenceQuality: eq ? {
+      level: (eq.level as EvidenceQuality['level']) ?? 'other',
+      score: (eq.score as number) ?? 50,
+      sampleSizeAdequacy: (eq.sample_size_adequacy as EvidenceQuality['sampleSizeAdequacy']) ?? 'unknown',
+      statisticalRigor: (eq.statistical_rigor as EvidenceQuality['statisticalRigor']) ?? 'medium',
+      reproducibilitySignals: (eq.reproducibility_signals as EvidenceQuality['reproducibilitySignals']) ?? 'none',
+    } : {
+      level: 'other' as const,
+      score: 50,
+      sampleSizeAdequacy: 'unknown' as const,
+      statisticalRigor: 'medium' as const,
+      reproducibilitySignals: 'none' as const,
+    },
+    domain: (raw.domain as string) ?? 'academic_basic',
+    regulatoryPathway: (raw.regulatory_pathway as string) ?? '',
+    regulatoryTimeline: (raw.regulatory_timeline as string) ?? '',
+    methodology: (raw.methodology as Analysis['methodology']) ?? 'experimental',
+    methodologyScore: (raw.methodology_score as number) ?? 70,
+    citations: 0,
+    impactScore: (raw.impact_score as number) ?? 50,
+    noveltyScore: (raw.novelty_score as number) ?? 50,
+    similarPapers: [],
+    tags: (raw.tags as string[]) ?? [],
+    analyzedAt: new Date(),
+  }
+}
 
 export default function AnalysisPage({ params }: AnalysisPageProps) {
   const { id } = use(params)

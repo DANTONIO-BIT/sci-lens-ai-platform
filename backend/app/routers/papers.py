@@ -13,8 +13,6 @@ from app.services import pdf_parser, embeddings, llm_analyzer
 
 router = APIRouter(prefix="/papers", tags=["papers"])
 
-# Limit concurrent paper processing to avoid OOM on 256MB machines.
-# Papers beyond this limit queue automatically and process as slots free up.
 _sem = asyncio.Semaphore(2)
 
 
@@ -23,7 +21,6 @@ def _supabase():
 
 
 def _get_user_id(authorization: str | None) -> str:
-    """Extract user_id from Supabase JWT. Raises 401 if missing/invalid."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization header")
     token = authorization.split(" ", 1)[1]
@@ -40,10 +37,6 @@ async def upload_paper(
     file: UploadFile = File(...),
     authorization: str | None = Header(default=None),
 ):
-    """
-    Upload a PDF, extract metadata, generate embeddings, and trigger analysis.
-    Returns immediately with paper_id; analysis runs in the background.
-    """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
@@ -68,11 +61,13 @@ async def upload_paper(
     )
     file_url = sb.storage.from_("papers").get_public_url(storage_path)
 
-    # 2. Extract metadata
+    # 2. Extract metadata + full text + sections
     metadata = pdf_parser.extract_metadata(pdf_bytes)
     full_text = pdf_parser.extract_full_text(pdf_bytes)
+    sections = pdf_parser.extract_sections(full_text)
+    priority_context = pdf_parser.build_priority_context(sections)
 
-    # 3. Create paper record with status=processing
+    # 3. Create paper record
     sb.table("papers").insert(
         {
             "id": paper_id,
@@ -89,10 +84,9 @@ async def upload_paper(
         }
     ).execute()
 
-    # 4. Run embedding + analysis in background (non-blocking)
-    # pdf_bytes is NOT passed — already extracted above, no need to keep in memory
+    # 4. Background processing
     asyncio.create_task(
-        _process_paper(paper_id, user_id, metadata, full_text)
+        _process_paper(paper_id, user_id, metadata, full_text, sections, priority_context)
     )
 
     return UploadResponse(
@@ -103,31 +97,24 @@ async def upload_paper(
     )
 
 
-async def _process_paper(paper_id: str, user_id: str, metadata, full_text: str):
-    """Background task: chunk, embed, analyze, save results.
-    - Semaphore limits to 2 concurrent papers to avoid OOM on 256MB
-    - All Supabase calls run in thread pool (non-blocking event loop)
-    - pdf_bytes intentionally excluded — already extracted before this task
-    """
+async def _process_paper(paper_id, user_id, metadata, full_text, sections, priority_context):
     sb = _supabase()
 
     async def db(fn):
-        """Run a synchronous Supabase call in the thread pool."""
         return await asyncio.to_thread(fn)
 
-    # Queue here — at most 2 papers process simultaneously, rest wait
     async with _sem:
         try:
-            # Chunk + embed (embed_texts is already async via httpx)
+            # Chunk + embed
             chunks = pdf_parser.chunk_text(full_text)
             await embeddings.store_chunks(paper_id, chunks)
 
-            # LLM analysis (AsyncOpenAI — already async)
+            # LLM analysis with section-prioritized context
             analysis = await llm_analyzer.analyze_paper(
-                metadata.title, metadata.abstract, full_text
+                metadata.title, metadata.abstract, priority_context
             )
 
-            # Save analysis to DB (sync → thread pool)
+            # Save analysis
             await db(lambda: sb.table("paper_analysis").insert(
                 {
                     "paper_id": paper_id,
@@ -143,10 +130,14 @@ async def _process_paper(paper_id: str, user_id: str, metadata, full_text: str):
                     "extracted_methods": analysis.extracted_methods,
                     "extracted_claims": analysis.extracted_claims,
                     "raw_json": analysis.model_dump(),
+                    "domain": analysis.domain,
+                    "evidence_quality": analysis.evidence_quality.model_dump(),
+                    "regulatory_pathway": analysis.regulatory_pathway,
+                    "regulatory_timeline": analysis.regulatory_timeline,
                 }
             ).execute())
 
-            # Find similar papers via pgvector
+            # Find similar papers
             similar = await embeddings.find_similar_papers(paper_id, user_id)
             for item in similar:
                 try:
@@ -164,7 +155,6 @@ async def _process_paper(paper_id: str, user_id: str, metadata, full_text: str):
                 except Exception:
                     pass
 
-            # Mark as analyzed
             await db(lambda: sb.table("papers").update({"status": "analyzed"}).eq("id", paper_id).execute())
 
         except Exception as e:
@@ -179,7 +169,6 @@ async def get_paper_status(
     paper_id: str,
     authorization: str | None = Header(default=None),
 ):
-    """Poll the processing status of a paper."""
     user_id = _get_user_id(authorization)
     sb = _supabase()
     resp = (
@@ -201,7 +190,6 @@ async def get_paper(
     paper_id: str,
     authorization: str | None = Header(default=None),
 ):
-    """Get full paper with analysis."""
     user_id = _get_user_id(authorization)
     sb = _supabase()
 
@@ -232,7 +220,6 @@ async def get_paper(
 
 @router.get("/")
 async def list_papers(authorization: str | None = Header(default=None)):
-    """List all papers for the authenticated user."""
     user_id = _get_user_id(authorization)
     sb = _supabase()
 

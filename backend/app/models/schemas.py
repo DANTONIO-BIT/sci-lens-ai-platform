@@ -32,6 +32,27 @@ class KeyFinding(BaseModel):
     category: Literal["innovation", "application", "limitation", "opportunity"]
 
 
+class EvidenceQuality(BaseModel):
+    level: Literal[
+        "meta_analysis", "rct", "cohort", "case_control",
+        "in_vivo", "in_vitro", "in_silico", "review", "other"
+    ]
+    score: int = Field(ge=0, le=100)
+    sample_size_adequacy: Literal["adequate", "underpowered", "unknown"]
+    statistical_rigor: Literal["high", "medium", "low"]
+    reproducibility_signals: Literal["strong", "moderate", "weak", "none"]
+
+
+DomainType = Literal[
+    "pharma_clinical",
+    "pharma_industrial",
+    "biotech",
+    "medical_device",
+    "chemicals",
+    "agro_health",
+    "academic_basic",
+]
+
 MethodologyType = Literal[
     "experimental",
     "observational",
@@ -47,6 +68,7 @@ MethodologyType = Literal[
 # ---------------------------------------------------------------------------
 
 class AnalysisResult(BaseModel):
+    domain: DomainType
     trl_score: int = Field(ge=1, le=9)
     trl_confidence: int = Field(ge=0, le=100)
     trl_description: str
@@ -55,6 +77,9 @@ class AnalysisResult(BaseModel):
     risk_score: int = Field(ge=0, le=100)
     risk_factors: list[RiskFactor]
     key_findings: list[KeyFinding]
+    evidence_quality: EvidenceQuality
+    regulatory_pathway: str = ""
+    regulatory_timeline: str = ""
     methodology: MethodologyType
     methodology_score: int = Field(ge=0, le=100)
     impact_score: int = Field(ge=0, le=100)
@@ -104,3 +129,58 @@ class PaperStatus(BaseModel):
 class ConnectionsResponse(BaseModel):
     nodes: list[dict]
     links: list[dict]
+
+
+class PaperStats(BaseModel):
+    total_papers: int
+    analyzed_papers: int
+    avg_trl_score: float
+    total_tam_value: float
+    high_risk_count: int
+    domain_distribution: dict[str, int]
+    evidence_distribution: dict[str, int]
+
+
+# ---------------------------------------------------------------------------
+# Research project portfolio
+# ---------------------------------------------------------------------------
+
+class CreateProjectRequest(BaseModel):
+    name: str
+    description: str = ""
+    domain: str = "pharma_clinical"
+
+
+class UpdateProjectRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ProjectResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    domain: str
+    status: str
+    created_at: str
+    paper_count: int = 0
+
+
+class ProjectMetrics(BaseModel):
+    paper_count: int = 0
+    analyzed_count: int = 0
+    avg_trl: float = 0.0
+    total_tam_billions: float = 0.0
+    risk_distribution: dict[str, int] = {}
+    evidence_quality_distribution: dict[str, int] = {}
+    regulatory_pathways: list[str] = []
+    avg_methodology_score: float = 0.0
+    avg_novelty_score: float = 0.0
+    avg_impact_score: float = 0.0
+
+
+class ProjectDetailResponse(BaseModel):
+    project: ProjectResponse
+    metrics: ProjectMetrics
+    papers: list[dict]
