@@ -19,23 +19,8 @@ import {
 } from '@/components/ui/select'
 import { mockPapers, processingPapers } from '@/lib/mock-data'
 import { listPapers } from '@/lib/api'
+import { adaptApiPaper } from '@/lib/adapters'
 import type { Paper } from '@/lib/types'
-
-const adaptApiPaper = (p: {
-  id: string
-  title: string
-  authors: string[]
-  status: string
-  created_at: string
-  file_name: string
-}): Paper => ({
-  id: p.id,
-  title: p.title,
-  authors: p.authors ?? [],
-  abstract: '',
-  uploadedAt: new Date(p.created_at),
-  status: (p.status as Paper['status']) ?? 'processing',
-})
 
 function getTrlColor(score: number): string {
   if (score >= 7) return 'bg-trl-high/15 text-trl-high'

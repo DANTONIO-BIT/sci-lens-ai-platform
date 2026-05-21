@@ -234,6 +234,11 @@ async def list_papers(authorization: str | None = Header(default=None)):
     papers = []
     for p in (papers_resp.data or []):
         pa = p.pop("paper_analysis", None)
-        p["analysis"] = pa[0] if isinstance(pa, list) and pa else None
+        if isinstance(pa, list):
+            p["analysis"] = pa[0] if pa else None
+        elif isinstance(pa, dict):
+            p["analysis"] = pa
+        else:
+            p["analysis"] = None
         papers.append(p)
     return {"papers": papers}
