@@ -3,7 +3,6 @@ Papers router — upload, retrieve, list endpoints.
 """
 from __future__ import annotations
 import hashlib
-import json
 import uuid
 import asyncio
 from fastapi import APIRouter, UploadFile, File, HTTPException, Header
@@ -95,11 +94,11 @@ async def upload_paper(
     if existing:
         raise HTTPException(
             status_code=409,
-            detail=json.dumps({
+            detail={
                 "duplicate": True,
                 "existing_paper_id": existing["id"],
                 "title": existing["title"],
-            }),
+            },
         )
 
     paper_id = str(uuid.uuid4())
@@ -228,7 +227,7 @@ async def get_paper_status(
         .select("id, status, title")
         .eq("id", paper_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
     if not resp or not resp.data:
@@ -250,10 +249,10 @@ async def get_paper(
         .select("*")
         .eq("id", paper_id)
         .eq("user_id", user_id)
-        .single()
+        .maybe_single()
         .execute()
     )
-    if not paper_resp.data:
+    if not paper_resp or not paper_resp.data:
         raise HTTPException(status_code=404, detail="Paper not found")
 
     analysis_resp = (

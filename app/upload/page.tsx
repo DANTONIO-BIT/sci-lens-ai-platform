@@ -127,18 +127,22 @@ export default function UploadPage() {
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Upload failed'
-      // Check for duplicate (409)
+      // Check for duplicate (409) — backend returns {"detail": {"duplicate": true, ...}}
       if (msg.includes('409')) {
         try {
-          const detail = JSON.parse(msg.split('\n').pop() || '{}')
-          if (detail.duplicate) {
-            updateJob(localId, {
-              status: 'duplicate',
-              progress: 100,
-              error: `Already uploaded: ${detail.title}`,
-              existingPaperId: detail.existing_paper_id,
-            })
-            return
+          const jsonStart = msg.indexOf('{')
+          if (jsonStart !== -1) {
+            const outer = JSON.parse(msg.slice(jsonStart))
+            const detail = outer.detail ?? {}
+            if (detail.duplicate) {
+              updateJob(localId, {
+                status: 'duplicate',
+                progress: 100,
+                error: `Already uploaded: ${detail.title}`,
+                existingPaperId: detail.existing_paper_id,
+              })
+              return
+            }
           }
         } catch {
           // fallthrough to generic error
