@@ -11,8 +11,9 @@ from app.models.schemas import (
     CreateProjectRequest,
     UpdateProjectRequest,
     EvidenceQuality,
-    TamEstimate,
-    TamBreakdown,
+    MarketEvidence,
+    EnrichmentResult,
+    ExtractedEntities,
     RiskFactor,
     KeyFinding,
 )
@@ -40,7 +41,7 @@ def test_evidence_quality_valid_levels():
 def test_evidence_quality_rejects_invalid_level():
     with pytest.raises(ValidationError):
         EvidenceQuality(
-            level="field_trial",  # not in the enum — agro uses in_vivo for animal/field equivalent
+            level="field_trial",
             score=50,
             sample_size_adequacy="unknown",
             statistical_rigor="medium",
@@ -55,20 +56,48 @@ def test_evidence_quality_score_bounds():
 
 
 # ---------------------------------------------------------------------------
-# TamEstimate + TamBreakdown
+# MarketEvidence (replaces TamEstimate)
 # ---------------------------------------------------------------------------
 
-def test_tam_estimate_valid():
-    tam = TamEstimate(
-        value=25.0, currency="USD",
-        breakdown=[TamBreakdown(segment="US", value=15.0, percentage=60)]
+def test_market_evidence_valid():
+    me = MarketEvidence(
+        field_maturity="growing",
+        market_validation_score=65,
+        active_trials_in_space=12,
+        completed_trials_in_space=8,
+        approved_drugs_in_class=2,
+        evidence_basis="2 FDA approvals; 12 active trials",
+        citation_signal="47 citations (high activity)",
     )
-    assert tam.value == 25.0
+    assert me.market_validation_score == 65
+    assert me.field_maturity == "growing"
 
 
-def test_tam_breakdown_valid():
-    bd = TamBreakdown(segment="EU oncology", value=8.5, percentage=34)
-    assert bd.segment == "EU oncology"
+def test_market_evidence_score_bounds():
+    with pytest.raises(ValidationError):
+        MarketEvidence(field_maturity="nascent", market_validation_score=101)
+
+
+def test_market_evidence_invalid_maturity():
+    with pytest.raises(ValidationError):
+        MarketEvidence(field_maturity="unknown", market_validation_score=50)
+
+
+# ---------------------------------------------------------------------------
+# EnrichmentResult + ExtractedEntities
+# ---------------------------------------------------------------------------
+
+def test_enrichment_result_defaults():
+    er = EnrichmentResult()
+    assert er.total_trials_in_space == 0
+    assert er.sources_used == []
+    assert er.enrichment_errors == []
+
+
+def test_extracted_entities_defaults():
+    e = ExtractedEntities()
+    assert e.compounds == []
+    assert e.search_terms == []
 
 
 # ---------------------------------------------------------------------------

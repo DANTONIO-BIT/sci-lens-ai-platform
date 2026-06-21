@@ -10,7 +10,9 @@ from supabase import create_client
 
 from app.config import settings
 from app.models.schemas import UploadResponse, PaperStatus
-from app.services import pdf_parser, embeddings, llm_analyzer
+from app.services import pdf_parser, embeddings, llm_analyzer, entity_extractor
+from app.services.enrichers import orchestrator as enricher
+from app.services.scoring import trl as trl_scorer, market as market_scorer
 
 router = APIRouter(prefix="/papers", tags=["papers"])
 
@@ -156,16 +158,43 @@ async def _process_paper(paper_id, user_id, metadata, full_text, sections, prior
 
     async with _sem:
         try:
-            # Chunk + embed
+            # Step 1: Chunk + embed (unchanged)
             chunks = pdf_parser.chunk_text(full_text)
             await embeddings.store_chunks(paper_id, chunks)
 
-            # LLM analysis with section-prioritized context
-            analysis = await llm_analyzer.analyze_paper(
-                metadata.title, metadata.abstract, priority_context
+            # Step 2: Extract scientific entities from abstract
+            entities = await entity_extractor.extract_entities(
+                metadata.title, metadata.abstract
             )
 
-            # Save analysis
+            # Step 3: Enrich with external scientific APIs (parallel)
+            enrichment = await enricher.enrich_paper(
+                title=metadata.title,
+                doi=metadata.doi,
+                entities=entities,
+            )
+
+            # Step 4: Detect domain (small LLM call)
+            domain = await llm_analyzer.detect_domain(
+                metadata.abstract, priority_context
+            )
+
+            # Step 5: Compute data-driven scores from real enrichment data
+            trl_context = trl_scorer.calculate_trl_context(enrichment)
+            market_evidence = market_scorer.calculate_market_evidence(enrichment, domain)
+
+            # Step 6: LLM synthesis — interprets paper + receives real data as context
+            analysis = await llm_analyzer.analyze_paper(
+                title=metadata.title,
+                abstract=metadata.abstract,
+                sections_text=priority_context,
+                domain=domain,
+                enrichment=enrichment,
+                trl_context=trl_context,
+                market_evidence=market_evidence,
+            )
+
+            # Step 7: Persist analysis
             await db(lambda: sb.table("paper_analysis").insert(
                 {
                     "paper_id": paper_id,
@@ -173,14 +202,18 @@ async def _process_paper(paper_id, user_id, metadata, full_text, sections, prior
                     "trl_confidence": analysis.trl_confidence,
                     "trl_description": analysis.trl_description,
                     "startup_score": analysis.novelty_score,
-                    "market_opportunity": analysis.tam_estimate.model_dump_json(),
-                    "tam_estimate": str(analysis.tam_estimate.value),
+                    "market_opportunity": market_evidence.model_dump(),
+                    "tam_estimate": str(market_evidence.market_validation_score),
                     "regulatory_complexity": analysis.risk_level,
                     "technical_barriers": analysis.trl_description,
                     "synthesis": analysis.synthesis,
                     "extracted_methods": analysis.extracted_methods,
                     "extracted_claims": analysis.extracted_claims,
-                    "raw_json": analysis.model_dump(),
+                    "raw_json": {
+                        **analysis.model_dump(exclude={"market_evidence", "enrichment"}),
+                        "market_evidence": market_evidence.model_dump(),
+                        "enrichment": enrichment.model_dump(),
+                    },
                     "domain": analysis.domain,
                     "evidence_quality": analysis.evidence_quality.model_dump(),
                     "regulatory_pathway": analysis.regulatory_pathway,

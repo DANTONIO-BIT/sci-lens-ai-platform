@@ -4,26 +4,28 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # OpenRouter — https://openrouter.ai/keys
+    # OpenRouter — free models only
     openrouter_api_key: str
-    # Free models: "meta-llama/llama-3.3-70b-instruct:free"
-    #              "google/gemini-2.0-flash-001"
-    #              "mistralai/mistral-small-3.1-24b-instruct:free"
-    llm_model: str = "meta-llama/llama-3.3-70b-instruct:free"
+    llm_model: str = "deepseek/deepseek-chat-v3-0324:free"
+    llm_model_fallback: str = "meta-llama/llama-3.3-70b-instruct:free"
 
-    # Jina AI — https://jina.ai  (1M tokens/month gratis)
+    # Jina AI — https://jina.ai (1M tokens/month free)
     jina_api_key: str
     embedding_model: str = "jina-embeddings-v3"
-    embedding_dimensions: int = 1024   # debe coincidir con el schema SQL
+    embedding_dimensions: int = 1024
 
-    # Supabase — usar service_role key (NO la anon key)
+    # Supabase — service_role key required
     supabase_url: str
     supabase_service_role_key: str
 
-    # CORS — URL del frontend
+    # CORS
     frontend_url: str = "http://localhost:3000"
 
-    # Límites de procesamiento
+    # Scientific enrichment APIs (all free — keys increase rate limits only)
+    ncbi_api_key: str = ""      # https://www.ncbi.nlm.nih.gov/account/
+    openfda_api_key: str = ""   # https://open.fda.gov/apis/authentication/
+
+    # Processing limits
     chunk_size: int = 500
     chunk_overlap: int = 50
     max_file_size_mb: int = 50

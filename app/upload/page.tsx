@@ -32,7 +32,7 @@ interface PaperJob {
 }
 
 const POLL_MS = 3000
-const MAX_POLLS = 60   // 3 min timeout
+const MAX_POLLS = 120  // 6 min timeout
 const MAX_FILES = 5
 
 // ---------------------------------------------------------------------------
