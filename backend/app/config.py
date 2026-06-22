@@ -4,9 +4,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # OpenRouter — free models only
+    # OpenRouter — free models only.
+    # NOTE: free models get deprecated/rotated often. If analysis starts timing
+    # out, verify both IDs still exist: GET https://openrouter.ai/api/v1/models
+    # These defaults are also mirrored as Fly secrets (LLM_MODEL / LLM_MODEL_FALLBACK),
+    # which OVERRIDE them in production — update the secrets too, not just this file.
     openrouter_api_key: str
-    llm_model: str = "deepseek/deepseek-chat-v3-0324:free"
+    llm_model: str = "qwen/qwen3-next-80b-a3b-instruct:free"
     llm_model_fallback: str = "meta-llama/llama-3.3-70b-instruct:free"
 
     # Jina AI — https://jina.ai (1M tokens/month free)

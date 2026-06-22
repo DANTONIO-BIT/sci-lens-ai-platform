@@ -9,6 +9,8 @@ backend/.env
 .next/
 out/
 node_modules/
+*.tsbuildinfo
+next-env.d.ts
 
 # ── Python / Backend ───────────────────────────────────────
 __pycache__/
@@ -16,11 +18,22 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+# Virtual environments (any name/location)
+venv/
+.venv/
 backend/venv/
 backend/.venv/
+backend/.venv*/
 *.egg-info/
 dist/
 build/
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # ── Sistema ────────────────────────────────────────────────
 .DS_Store

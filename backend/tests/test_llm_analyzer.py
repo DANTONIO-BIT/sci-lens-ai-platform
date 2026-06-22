@@ -1,20 +1,31 @@
 """
-Tests for llm_analyzer service.
-- Domain detection logic (mocked LLM calls)
+Tests for llm_analyzer service (data-driven architecture).
 - JSON extraction helper
+- Domain detection logic (mocked LLM calls)
+- Per-domain scoring guides loaded from prompts/
 - AnalysisResult schema validation
+- analyze_paper smoke test (mocked LLM, real enrichment/market context)
 """
 import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.llm_analyzer import (
     _extract_json,
-    DOMAIN_PROMPTS,
-    DOMAIN_DETECTION_PROMPT,
+    _DOMAIN_SYSTEM,
+    _load_domain_guide,
     detect_domain,
     analyze_paper,
 )
-from app.models.schemas import AnalysisResult
+from app.models.schemas import (
+    AnalysisResult,
+    MarketEvidence,
+    EnrichmentResult,
+)
+
+ALL_DOMAINS = [
+    "pharma_clinical", "pharma_industrial", "biotech",
+    "medical_device", "chemicals", "agro_health", "academic_basic",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +84,6 @@ async def test_detect_domain_returns_correct_domain(expected_domain, abstract):
     assert result == expected_domain
 
 
-@pytest.mark.asyncio
 async def test_detect_domain_falls_back_on_unknown_output():
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content="completely_unknown_domain"))]
@@ -85,7 +95,6 @@ async def test_detect_domain_falls_back_on_unknown_output():
     assert result == "academic_basic"
 
 
-@pytest.mark.asyncio
 async def test_detect_domain_falls_back_on_exception():
     with patch("app.services.llm_analyzer._client") as mock_client:
         mock_client.chat.completions.create = AsyncMock(side_effect=Exception("Network error"))
@@ -94,41 +103,32 @@ async def test_detect_domain_falls_back_on_exception():
     assert result == "academic_basic"
 
 
+def test_domain_system_prompt_lists_all_domains():
+    for domain in ALL_DOMAINS:
+        assert domain in _DOMAIN_SYSTEM
+
+
 # ---------------------------------------------------------------------------
-# Domain prompts — structural completeness
+# Domain scoring guides — loaded from prompts/{domain}.md
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("domain", list(DOMAIN_PROMPTS.keys()))
-def test_domain_prompt_references_trl(domain):
-    assert "trl_score" in DOMAIN_PROMPTS[domain]
+@pytest.mark.parametrize("domain", ALL_DOMAINS)
+def test_domain_guide_loads_and_references_trl(domain):
+    guide = _load_domain_guide(domain)
+    assert guide.strip(), f"{domain} guide is empty"
+    assert "TRL" in guide
 
 
-@pytest.mark.parametrize("domain", list(DOMAIN_PROMPTS.keys()))
-def test_domain_prompt_references_tam(domain):
-    assert "tam_estimate" in DOMAIN_PROMPTS[domain]
+def test_unknown_domain_falls_back_to_academic_guide():
+    # An unmapped domain must still return a usable guide, not raise.
+    guide = _load_domain_guide("nonexistent_domain")
+    assert guide.strip()
 
 
-@pytest.mark.parametrize("domain", list(DOMAIN_PROMPTS.keys()))
-def test_domain_prompt_references_evidence_quality(domain):
-    assert "evidence_quality" in DOMAIN_PROMPTS[domain]
-
-
-def test_agro_health_prompt_references_efsa():
-    assert "EFSA" in DOMAIN_PROMPTS["agro_health"]
-
-
-def test_agro_health_prompt_references_usda():
-    assert "USDA" in DOMAIN_PROMPTS["agro_health"]
-
-
-def test_agro_health_prompt_has_trl_context():
-    assert "multi-location field trial" in DOMAIN_PROMPTS["agro_health"]
-
-
-def test_all_7_domains_have_prompts():
-    expected = {"pharma_clinical", "pharma_industrial", "biotech", "medical_device",
-                "chemicals", "agro_health", "academic_basic"}
-    assert set(DOMAIN_PROMPTS.keys()) == expected
+def test_agro_health_guide_references_regulators():
+    guide = _load_domain_guide("agro_health")
+    assert "EFSA" in guide
+    assert "USDA" in guide
 
 
 # ---------------------------------------------------------------------------
@@ -140,9 +140,15 @@ VALID_ANALYSIS = {
     "trl_score": 5,
     "trl_confidence": 72,
     "trl_description": "Phase II clinical trial demonstrated efficacy.",
-    "tam_estimate": {"value": 12.5, "currency": "USD", "breakdown": [
-        {"segment": "US oncology market", "value": 8.0, "percentage": 64}
-    ]},
+    "market_evidence": {
+        "field_maturity": "growing",
+        "market_validation_score": 64,
+        "active_trials_in_space": 12,
+        "completed_trials_in_space": 30,
+        "approved_drugs_in_class": 3,
+        "evidence_basis": "30 completed trials, 3 approvals in class",
+        "citation_signal": "moderate",
+    },
     "risk_level": "medium",
     "risk_score": 55,
     "risk_factors": [
@@ -175,6 +181,7 @@ def test_analysis_result_validates_correctly():
     result = AnalysisResult(**VALID_ANALYSIS)
     assert result.trl_score == 5
     assert result.domain == "pharma_clinical"
+    assert result.market_evidence.market_validation_score == 64
 
 
 def test_analysis_result_trl_bounds():
@@ -215,14 +222,29 @@ def test_analysis_result_agro_health_domain():
     assert result.domain == "agro_health"
 
 
+def test_market_evidence_defaults_when_omitted():
+    # market_evidence has a default factory — AnalysisResult is valid without it.
+    payload = {k: v for k, v in VALID_ANALYSIS.items() if k != "market_evidence"}
+    result = AnalysisResult(**payload)
+    assert isinstance(result.market_evidence, MarketEvidence)
+
+
 # ---------------------------------------------------------------------------
-# analyze_paper — integration smoke test (mocked LLM)
+# analyze_paper — integration smoke test (mocked LLM, real data context)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_analyze_paper_returns_analysis_result():
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps(VALID_ANALYSIS)))]
+
+    market_evidence = MarketEvidence(
+        field_maturity="growing",
+        market_validation_score=64,
+        evidence_basis="30 completed trials",
+        citation_signal="moderate",
+    )
+    trl_context = {"field_trl": 6, "trl_evidence": "Multiple Phase II/III trials in space"}
 
     with patch("app.services.llm_analyzer._client") as mock_client:
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
@@ -231,7 +253,13 @@ async def test_analyze_paper_returns_analysis_result():
             abstract="Phase II trial of compound X in cancer patients.",
             sections_text="METHODS: RCT with 200 patients.\nRESULTS: Significant response.",
             domain="pharma_clinical",
+            enrichment=EnrichmentResult(),
+            trl_context=trl_context,
+            market_evidence=market_evidence,
         )
 
     assert isinstance(result, AnalysisResult)
     assert 1 <= result.trl_score <= 9
+    # analyze_paper forces the validated domain and injects real market data
+    assert result.domain == "pharma_clinical"
+    assert result.market_evidence.market_validation_score == 64

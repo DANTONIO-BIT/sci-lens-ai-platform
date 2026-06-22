@@ -141,7 +141,7 @@ def test_status_returns_404_for_unknown_paper():
     mock_user = MagicMock()
     mock_user.user.id = "user-123"
     mock_sb.auth.get_user.return_value = mock_user
-    mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value.data = None
+    mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = None
 
     with patch("app.routers.papers.create_client", return_value=mock_sb), \
          patch("app.routers.papers._supabase", return_value=mock_sb):

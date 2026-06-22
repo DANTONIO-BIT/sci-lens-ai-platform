@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 import asyncio
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, UploadFile, File, HTTPException, Header
 from supabase import create_client
 
@@ -17,6 +18,14 @@ from app.services.scoring import trl as trl_scorer, market as market_scorer
 router = APIRouter(prefix="/papers", tags=["papers"])
 
 _sem = asyncio.Semaphore(2)
+
+# A paper still "processing" after this long is an orphan (its background task
+# died — OOM, restart, hang). Re-uploading it should replace it, not 409.
+_ORPHAN_AFTER = timedelta(minutes=10)
+
+# Hard ceiling for a single analysis. Stays under the frontend's ~6-min poll
+# budget so a hung pipeline self-fails to 'failed' instead of orphaning.
+_ANALYSIS_TIMEOUT_S = 300
 
 
 def _supabase():
@@ -36,12 +45,12 @@ def _get_user_id(authorization: str | None) -> str:
 
 
 def _check_duplicate(sb, user_id: str, file_hash: str, doi: str | None) -> dict | None:
-    """Check if a paper with the same file_hash or DOI already exists for this user."""
+    """Find an existing paper for this user by file_hash or DOI (any status)."""
     # Check by file hash
     if file_hash:
         resp = (
             sb.table("papers")
-            .select("id, title")
+            .select("id, title, status, created_at")
             .eq("user_id", user_id)
             .eq("file_hash", file_hash)
             .maybe_single()
@@ -54,7 +63,7 @@ def _check_duplicate(sb, user_id: str, file_hash: str, doi: str | None) -> dict 
     if doi:
         resp = (
             sb.table("papers")
-            .select("id, title")
+            .select("id, title, status, created_at")
             .eq("user_id", user_id)
             .eq("doi", doi)
             .maybe_single()
@@ -64,6 +73,31 @@ def _check_duplicate(sb, user_id: str, file_hash: str, doi: str | None) -> dict 
             return resp.data
 
     return None
+
+
+def _is_orphan_processing(row: dict) -> bool:
+    """A 'processing' paper whose background task clearly died (stale)."""
+    if row.get("status") != "processing":
+        return False
+    created = row.get("created_at")
+    if not created:
+        return True
+    try:
+        ts = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - ts > _ORPHAN_AFTER
+
+
+def _purge_paper(sb, user_id: str, paper_id: str) -> None:
+    """Delete a paper + its PDF. Row delete cascades to chunks/analysis/connections."""
+    try:
+        sb.storage.from_("papers").remove([f"{user_id}/{paper_id}.pdf"])
+    except Exception:
+        pass  # best-effort — a missing object must not block re-upload
+    sb.table("papers").delete().eq("id", paper_id).eq("user_id", user_id).execute()
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -91,17 +125,22 @@ async def upload_paper(
     # Extract metadata to get DOI
     metadata = pdf_parser.extract_metadata(pdf_bytes)
 
-    # Check for duplicates
+    # Duplicate handling. A successfully 'analyzed' paper — or one that is
+    # genuinely still processing — blocks re-upload. A 'failed' paper or a
+    # stale 'processing' orphan is purged so the user can re-upload cleanly.
     existing = _check_duplicate(sb, user_id, file_hash, metadata.doi)
     if existing:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "duplicate": True,
-                "existing_paper_id": existing["id"],
-                "title": existing["title"],
-            },
-        )
+        status = existing.get("status")
+        if status == "analyzed" or (status == "processing" and not _is_orphan_processing(existing)):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "duplicate": True,
+                    "existing_paper_id": existing["id"],
+                    "title": existing["title"],
+                },
+            )
+        _purge_paper(sb, user_id, existing["id"])
 
     paper_id = str(uuid.uuid4())
 
@@ -157,7 +196,7 @@ async def _process_paper(paper_id, user_id, metadata, full_text, sections, prior
         return await asyncio.to_thread(fn)
 
     async with _sem:
-        try:
+        async def _run():
             # Step 1: Chunk + embed (unchanged)
             chunks = pdf_parser.chunk_text(full_text)
             await embeddings.store_chunks(paper_id, chunks)
@@ -241,6 +280,10 @@ async def _process_paper(paper_id, user_id, metadata, full_text, sections, prior
 
             await db(lambda: sb.table("papers").update({"status": "analyzed"}).eq("id", paper_id).execute())
 
+        try:
+            # Bound the whole pipeline so a hung step self-fails instead of
+            # leaving the paper orphaned in 'processing' forever.
+            await asyncio.wait_for(_run(), timeout=_ANALYSIS_TIMEOUT_S)
         except Exception as e:
             await asyncio.to_thread(
                 lambda: sb.table("papers").update({"status": "failed"}).eq("id", paper_id).execute()
