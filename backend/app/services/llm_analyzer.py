@@ -15,18 +15,14 @@ import re
 import time
 import asyncio
 from pathlib import Path
-from openai import AsyncOpenAI
 from app.config import settings
+from app.services.llm_client import make_llm_client
 from app.models.schemas import AnalysisResult, EvidenceQuality, MarketEvidence, EnrichmentResult
 
 _PROMPTS_DIR = Path(__file__).parent.parent.parent / "prompts"
 
-_client = AsyncOpenAI(
-    api_key=settings.openrouter_api_key,
-    base_url="https://openrouter.ai/api/v1",
-    timeout=90.0,
-    default_headers={"HTTP-Referer": "https://scilens.app", "X-Title": "SciLens"},
-)
+# Provider-agnostic client (OpenRouter / Ollama / any OpenAI-compatible endpoint).
+_client = make_llm_client(timeout=90.0)
 
 # ---------------------------------------------------------------------------
 # Domain detection

@@ -6,16 +6,12 @@ These entities drive the external API enrichment pipeline.
 from __future__ import annotations
 import json
 import re
-from openai import AsyncOpenAI
 from app.config import settings
+from app.services.llm_client import make_llm_client
 from app.models.schemas import ExtractedEntities
 
-_client = AsyncOpenAI(
-    api_key=settings.openrouter_api_key,
-    base_url="https://openrouter.ai/api/v1",
-    timeout=30.0,
-    default_headers={"HTTP-Referer": "https://scilens.app", "X-Title": "SciLens"},
-)
+# Provider-agnostic client (OpenRouter / Ollama / any OpenAI-compatible endpoint).
+_client = make_llm_client(timeout=30.0)
 
 _PROMPT = """Extract scientific entities from this paper's title and abstract.
 Return ONLY a JSON object with these keys (empty list if not applicable):

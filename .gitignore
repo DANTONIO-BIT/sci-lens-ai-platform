@@ -49,6 +49,8 @@ Thumbs.db
 
 # ── Deploy ─────────────────────────────────────────────────
 .vercel/
+supabase/.temp/
+flylogs.tmp
 
 # ── v0 sandbox (limpiar artefactos del generador) ──────────
 __v0_runtime_loader.js
