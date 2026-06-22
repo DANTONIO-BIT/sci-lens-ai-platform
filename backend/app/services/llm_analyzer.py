@@ -12,6 +12,7 @@ regulatory pathway, and strategic implications.
 from __future__ import annotations
 import json
 import re
+import time
 import asyncio
 from pathlib import Path
 from openai import AsyncOpenAI
@@ -88,6 +89,17 @@ def _load_domain_guide(domain: str) -> str:
 # ---------------------------------------------------------------------------
 # JSON extraction
 # ---------------------------------------------------------------------------
+
+def _retry_after_seconds(e: Exception) -> float | None:
+    """Pull OpenRouter's suggested retry delay out of a 429 error, if present."""
+    m = re.search(r"retry_after_seconds['\"]?\s*:\s*([0-9.]+)", str(e))
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
+    return None
+
 
 def _extract_json(text: str) -> dict:
     text = text.strip()
@@ -237,42 +249,61 @@ async def analyze_paper(
 
     last_error: Exception = RuntimeError("no attempts")
 
-    for model in (settings.llm_model, settings.llm_model_fallback):
-        for use_json_mode in (True, False):
-            try:
-                kwargs: dict = dict(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message},
-                    ],
-                    temperature=0.1,
-                    max_tokens=3500,
-                )
-                if use_json_mode:
-                    kwargs["response_format"] = {"type": "json_object"}
+    # Deduplicated chain of free models to try.
+    models: list[str] = []
+    for m in (settings.llm_model, settings.llm_model_fallback):
+        if m and m not in models:
+            models.append(m)
 
-                r = await _client.chat.completions.create(**kwargs)
-                raw = r.choices[0].message.content or "{}"
-                data = _extract_json(raw)
+    # Free-tier models get rate-limited upstream. Cycle through several rounds,
+    # honoring the server's Retry-After, staying within the frontend's ~6-min budget.
+    deadline = time.monotonic() + 240
 
-                # Inject real market data — override any LLM estimate
-                data["market_evidence"] = market_evidence.model_dump()
-                data["enrichment"] = enrichment.model_dump()
+    for _round in range(4):
+        for model in models:
+            for use_json_mode in (True, False):
+                if time.monotonic() > deadline:
+                    raise last_error
+                try:
+                    kwargs: dict = dict(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_message},
+                        ],
+                        temperature=0.1,
+                        max_tokens=3500,
+                    )
+                    if use_json_mode:
+                        kwargs["response_format"] = {"type": "json_object"}
 
-                return AnalysisResult(**data)
+                    r = await _client.chat.completions.create(**kwargs)
+                    raw = r.choices[0].message.content or "{}"
+                    data = _extract_json(raw)
 
-            except Exception as e:
-                last_error = e
-                err = str(e)
-                # Rate limit — try other model
-                if "429" in err or "rate" in err.lower():
-                    await asyncio.sleep(10)
+                    # Force the already-validated domain — the LLM sometimes returns a
+                    # paper topic (e.g. "bacterial_conjugation") instead of one of the 7
+                    # allowed DomainType literals, which would fail Pydantic validation.
+                    data["domain"] = domain
+
+                    # Inject real market data — override any LLM estimate
+                    data["market_evidence"] = market_evidence.model_dump()
+                    data["enrichment"] = enrichment.model_dump()
+
+                    return AnalysisResult(**data)
+
+                except Exception as e:
+                    last_error = e
+                    err = str(e)
+                    # Rate limit — wait the server's suggested delay, then try next model.
+                    if "429" in err or "rate" in err.lower():
+                        wait = _retry_after_seconds(e) or 20
+                        await asyncio.sleep(min(wait, 45))
+                        break
+                    # json_mode not supported — retry same model without it.
+                    if use_json_mode:
+                        continue
+                    # Any other error on this model — try the next one.
                     break
-                # json_mode not supported — retry without
-                if use_json_mode:
-                    continue
-                # Any other error on this model — try fallback
-                break
 
     raise last_error
