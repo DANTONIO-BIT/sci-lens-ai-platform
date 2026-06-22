@@ -26,7 +26,7 @@ function getRiskColor(level: string): string {
   }
 }
 
-export default function TopTAMPage() {
+export default function TopMarketPage() {
   const [papers, setPapers] = React.useState<Paper[]>([])
   const [loading, setLoading] = React.useState(true)
 
@@ -39,13 +39,13 @@ export default function TopTAMPage() {
 
   const sorted = React.useMemo(
     () => [...papers]
-      .filter(p => p.analysis && p.analysis.tamEstimate.value > 0)
-      .sort((a, b) => (b.analysis?.tamEstimate.value ?? 0) - (a.analysis?.tamEstimate.value ?? 0)),
+      .filter(p => p.analysis && p.analysis.marketEvidence.marketValidationScore > 0)
+      .sort((a, b) => (b.analysis?.marketEvidence.marketValidationScore ?? 0) - (a.analysis?.marketEvidence.marketValidationScore ?? 0)),
     [papers]
   )
 
   return (
-    <AppLayout title="Top TAM">
+    <AppLayout title="Top Market Validation">
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/dashboard">
@@ -55,8 +55,8 @@ export default function TopTAMPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Top TAM Papers</h1>
-            <p className="text-muted-foreground">Papers ranked by Total Addressable Market estimate</p>
+            <h1 className="text-2xl font-bold tracking-tight">Top Market Validation</h1>
+            <p className="text-muted-foreground">Papers ranked by market validation score (real trial &amp; approval data)</p>
           </div>
         </div>
 
@@ -69,7 +69,7 @@ export default function TopTAMPage() {
         ) : sorted.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No analyzed papers with TAM data.</p>
+              <p className="text-muted-foreground">No analyzed papers with market validation data.</p>
               <Link href="/upload">
                 <Button variant="link">Upload a paper</Button>
               </Link>
@@ -95,9 +95,9 @@ export default function TopTAMPage() {
                       <div className="shrink-0 text-right flex items-center gap-3">
                         <div className="text-right">
                           <p className="text-xl font-bold font-mono text-chart-3">
-                            ${paper.analysis?.tamEstimate.value.toFixed(1)}B
+                            {paper.analysis?.marketEvidence.marketValidationScore}<span className="text-sm text-muted-foreground">/100</span>
                           </p>
-                          <p className="text-xs text-muted-foreground">TAM</p>
+                          <p className="text-xs text-muted-foreground">Market</p>
                         </div>
                         {paper.analysis && (
                           <div className="flex flex-col gap-1">

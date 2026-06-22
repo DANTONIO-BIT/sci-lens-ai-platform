@@ -1,4 +1,4 @@
-import type { Paper, Analysis } from './types'
+import type { Paper, Analysis, MarketEvidence } from './types'
 
 type RawAnalysis = {
   trl_level?: number | null
@@ -8,19 +8,31 @@ type RawAnalysis = {
   raw_json?: Record<string, unknown> | null
 } | null
 
+// Map the backend MarketEvidence (snake_case) into the camelCase frontend shape.
+const adaptMarketEvidence = (
+  me: Record<string, unknown> | undefined,
+  fallbackScore: number,
+): MarketEvidence => ({
+  fieldMaturity: (me?.field_maturity as MarketEvidence['fieldMaturity']) ?? 'nascent',
+  marketValidationScore: Number(me?.market_validation_score ?? fallbackScore) || 0,
+  activeTrialsInSpace: Number(me?.active_trials_in_space ?? 0) || 0,
+  completedTrialsInSpace: Number(me?.completed_trials_in_space ?? 0) || 0,
+  approvedDrugsInClass: Number(me?.approved_drugs_in_class ?? 0) || 0,
+  evidenceBasis: String(me?.evidence_basis ?? ''),
+  citationSignal: String(me?.citation_signal ?? ''),
+})
+
 export const adaptAnalysis = (a: RawAnalysis): Analysis | undefined => {
   if (!a) return undefined
   const raw = (a.raw_json ?? {}) as Record<string, unknown>
   const trl = a.trl_level ?? (raw.trl_score as number) ?? 0
 
-  const tamRaw = raw.tam_estimate as Record<string, unknown> | undefined
+  const meRaw = raw.market_evidence as Record<string, unknown> | undefined
   return {
     trlScore: trl,
     trlConfidence: (raw.trl_confidence as number) ?? (a.trl_confidence as number) ?? 0,
     trlDescription: (raw.trl_description as string) ?? '',
-    tamEstimate: tamRaw
-      ? { value: Number(tamRaw.value ?? 0), currency: String(tamRaw.currency ?? 'USD'), breakdown: (tamRaw.breakdown as Analysis['tamEstimate']['breakdown']) ?? [] }
-      : { value: parseFloat(a.tam_estimate ?? '0') || 0, currency: 'USD', breakdown: [] },
+    marketEvidence: adaptMarketEvidence(meRaw, parseFloat(a.tam_estimate ?? '0') || 0),
     riskLevel: (a.regulatory_complexity as Analysis['riskLevel']) ?? (raw.risk_level as Analysis['riskLevel']) ?? 'medium',
     riskScore: (raw.risk_score as number) ?? 0,
     riskFactors: (raw.risk_factors as Analysis['riskFactors']) ?? [],

@@ -175,7 +175,7 @@ class PaperStats(BaseModel):
     total_papers: int
     analyzed_papers: int
     avg_trl_score: float
-    total_tam_value: float
+    avg_market_score: float  # 0-100, mean market_validation_score across analyzed papers
     high_risk_count: int
     domain_distribution: dict[str, int]
     evidence_distribution: dict[str, int]
@@ -211,7 +211,7 @@ class ProjectMetrics(BaseModel):
     paper_count: int = 0
     analyzed_count: int = 0
     avg_trl: float = 0.0
-    total_tam_billions: float = 0.0
+    avg_market_score: float = 0.0  # 0-100, mean market_validation_score across analyzed papers
     risk_distribution: dict[str, int] = {}
     evidence_quality_distribution: dict[str, int] = {}
     regulatory_pathways: list[str] = []

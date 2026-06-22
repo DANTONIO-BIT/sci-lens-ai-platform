@@ -5,12 +5,13 @@
  */
 import type { ProjectPaper, ProjectMetrics, ResearchProject } from './types'
 
-function tamValue(paper: ProjectPaper): number {
+function marketScore(paper: ProjectPaper): number {
   const raw = paper.analysis?.rawJson
-  if (raw?.tam_estimate && typeof raw.tam_estimate === 'object') {
-    return Number((raw.tam_estimate as Record<string, unknown>).value ?? 0)
+  const me = raw?.market_evidence
+  if (me && typeof me === 'object') {
+    return Number((me as Record<string, unknown>).market_validation_score ?? 0)
   }
-  return parseFloat(paper.analysis?.tamEstimate ?? '0') || 0
+  return Number(paper.analysis?.marketScore ?? 0) || 0
 }
 
 function noveltyScore(paper: ProjectPaper): number {
@@ -61,7 +62,7 @@ export async function exportProjectExcel(
     ['Total Papers', metrics.paperCount],
     ['Analyzed Papers', metrics.analyzedCount],
     ['Average TRL Score', metrics.avgTrl],
-    ['Total TAM', `$${metrics.totalTamBillions.toFixed(2)}B USD`],
+    ['Avg. Market Validation', `${metrics.avgMarketScore.toFixed(0)}/100`],
     ['Avg. Novelty Score', `${metrics.avgNoveltyScore}/100`],
     ['Avg. Impact Score', `${metrics.avgImpactScore}/100`],
     ['Avg. Methodology Score', `${metrics.avgMethodologyScore}/100`],
@@ -100,7 +101,7 @@ export async function exportProjectExcel(
     'Year',
     'TRL Score',
     'TRL Confidence (%)',
-    'TAM ($B USD)',
+    'Market Validation (/100)',
     'Risk Level',
     'Evidence Quality',
     'Regulatory Pathway',
@@ -122,7 +123,7 @@ export async function exportProjectExcel(
       p.year ?? '',
       a?.trlLevel ?? '',
       a?.trlLevel ? `${a.trlLevel * 10}` : '',  // rough confidence if not available
-      tamValue(p) || '',
+      marketScore(p) || '',
       a?.regulatoryComplexity ?? '',
       a?.evidenceQuality?.level?.replace(/_/g, ' ') ?? '',
       a?.regulatoryPathway ?? '',
@@ -207,7 +208,7 @@ export async function exportPapersExcel(
     uploadedAt: Date
     analysis?: {
       trlScore: number
-      tamEstimate: { value: number }
+      marketEvidence: { marketValidationScore: number }
       riskLevel: string
       evidenceQuality: { level: string }
       domain: string
@@ -219,7 +220,7 @@ export async function exportPapersExcel(
   const XLSX = await import('xlsx')
 
   const header = [
-    'Title', 'Authors', 'TRL Score', 'TAM ($B)', 'Risk Level',
+    'Title', 'Authors', 'TRL Score', 'Market /100', 'Risk Level',
     'Evidence Quality', 'Domain', 'Novelty', 'Impact', 'Status', 'Uploaded',
   ]
 
@@ -229,7 +230,7 @@ export async function exportPapersExcel(
       p.title,
       p.authors.join('; '),
       p.analysis?.trlScore ?? '',
-      p.analysis?.tamEstimate.value.toFixed(1) ?? '',
+      p.analysis?.marketEvidence.marketValidationScore ?? '',
       p.analysis?.riskLevel ?? '',
       p.analysis?.evidenceQuality.level.replace(/_/g, ' ') ?? '',
       domainLabel(p.analysis?.domain ?? ''),

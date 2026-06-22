@@ -38,7 +38,7 @@ def _compute_metrics(papers_with_analysis: list[dict]) -> ProjectMetrics:
     """Aggregate per-paper analysis into project-level metrics."""
     analyzed = [p for p in papers_with_analysis if p.get("analysis")]
     trl_scores = [p["analysis"]["trl_level"] for p in analyzed if p["analysis"].get("trl_level")]
-    tam_values = []
+    market_scores = []
     risk_dist: dict[str, int] = {}
     evidence_dist: dict[str, int] = {}
     methodology_scores = []
@@ -50,11 +50,19 @@ def _compute_metrics(papers_with_analysis: list[dict]) -> ProjectMetrics:
         a = p["analysis"]
         raw = a.get("raw_json") or {}
 
-        # TAM
-        try:
-            tam_values.append(float(a.get("tam_estimate", 0) or 0))
-        except (ValueError, TypeError):
-            pass
+        # Market validation score (0-100) — stored in tam_estimate column as a string,
+        # or in raw_json.market_evidence for newer analyses.
+        score = None
+        me = raw.get("market_evidence") if isinstance(raw, dict) else None
+        if isinstance(me, dict):
+            score = me.get("market_validation_score")
+        if score is None:
+            try:
+                score = float(a.get("tam_estimate", 0) or 0)
+            except (ValueError, TypeError):
+                score = None
+        if score is not None:
+            market_scores.append(float(score))
 
         # Risk distribution
         risk = a.get("regulatory_complexity") or raw.get("risk_level", "")
@@ -89,7 +97,7 @@ def _compute_metrics(papers_with_analysis: list[dict]) -> ProjectMetrics:
         paper_count=len(papers_with_analysis),
         analyzed_count=len(analyzed),
         avg_trl=_avg(trl_scores),
-        total_tam_billions=round(sum(tam_values), 2),
+        avg_market_score=_avg(market_scores),
         risk_distribution=risk_dist,
         evidence_quality_distribution=evidence_dist,
         regulatory_pathways=sorted(regulatory_pathways),

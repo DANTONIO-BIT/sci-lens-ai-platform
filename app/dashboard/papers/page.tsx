@@ -216,7 +216,7 @@ export default function PapersPage() {
                               {paper.analysis.riskLevel} risk
                             </Badge>
                             <span className="text-sm font-mono text-muted-foreground">
-                              ${paper.analysis.tamEstimate.value.toFixed(1)}B TAM
+                              Market: {paper.analysis.marketEvidence.marketValidationScore}/100
                             </span>
                             <span className="text-sm text-muted-foreground">
                               Impact: {paper.analysis.impactScore}/100

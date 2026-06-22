@@ -91,7 +91,7 @@ export function RecentPapers({ papers }: RecentPapersProps) {
                       {paper.analysis.riskLevel} risk
                     </Badge>
                     <span className="text-xs text-muted-foreground font-mono">
-                      ${paper.analysis.tamEstimate.value.toFixed(1)}B TAM
+                      {paper.analysis.marketEvidence.marketValidationScore}/100 market
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {formatDistanceToNow(paper.uploadedAt, { addSuffix: true })}

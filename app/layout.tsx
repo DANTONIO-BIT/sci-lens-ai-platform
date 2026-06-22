@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: 'SciLens | Scientific Intelligence Platform',
   description: 'AI-powered analysis of scientific papers. Evaluate technology readiness, market potential, and risk factors in seconds.',
   generator: 'v0.app',
-  keywords: ['scientific analysis', 'research papers', 'TRL', 'TAM', 'AI analysis', 'biotechnology', 'research intelligence'],
+  keywords: ['scientific analysis', 'research papers', 'TRL', 'market validation', 'clinical trials', 'AI analysis', 'biotechnology', 'research intelligence'],
   authors: [{ name: 'SciLens' }],
   icons: {
     icon: [

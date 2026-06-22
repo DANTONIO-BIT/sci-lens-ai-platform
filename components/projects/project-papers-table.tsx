@@ -13,7 +13,7 @@ interface ProjectPapersTableProps {
   onRemove?: (paperId: string) => void
 }
 
-type SortKey = 'title' | 'trl' | 'tam' | 'risk' | 'evidence'
+type SortKey = 'title' | 'trl' | 'market' | 'risk' | 'evidence'
 
 const RISK_BADGE: Record<string, string> = {
   low: 'bg-green-500/10 text-green-600 border-green-500/20',
@@ -41,8 +41,8 @@ export function ProjectPapersTable({ papers, onRemove }: ProjectPapersTableProps
       diff = a.title.localeCompare(b.title)
     } else if (sortKey === 'trl') {
       diff = (a.analysis?.trlLevel ?? 0) - (b.analysis?.trlLevel ?? 0)
-    } else if (sortKey === 'tam') {
-      diff = parseFloat(a.analysis?.tamEstimate ?? '0') - parseFloat(b.analysis?.tamEstimate ?? '0')
+    } else if (sortKey === 'market') {
+      diff = (a.analysis?.marketScore ?? 0) - (b.analysis?.marketScore ?? 0)
     } else if (sortKey === 'risk') {
       const order = { low: 1, medium: 2, high: 3 }
       diff = (order[a.analysis?.regulatoryComplexity as keyof typeof order] ?? 0) -
@@ -76,7 +76,7 @@ export function ProjectPapersTable({ papers, onRemove }: ProjectPapersTableProps
               <tr className="border-b border-border bg-muted/30">
                 <th className="px-4 py-3 text-left"><SortBtn k="title" label="Title" /></th>
                 <th className="px-4 py-3 text-center"><SortBtn k="trl" label="TRL" /></th>
-                <th className="px-4 py-3 text-center"><SortBtn k="tam" label="TAM ($B)" /></th>
+                <th className="px-4 py-3 text-center"><SortBtn k="market" label="Market /100" /></th>
                 <th className="px-4 py-3 text-center"><SortBtn k="evidence" label="Evidence" /></th>
                 <th className="px-4 py-3 text-center"><SortBtn k="risk" label="Risk" /></th>
                 <th className="px-4 py-3 text-left text-xs text-muted-foreground">Regulatory Pathway</th>
@@ -109,7 +109,7 @@ export function ProjectPapersTable({ papers, onRemove }: ProjectPapersTableProps
                       )}
                     </td>
                     <td className="px-4 py-3 text-center text-xs">
-                      {a?.tamEstimate ? `$${parseFloat(a.tamEstimate).toFixed(1)}B` : '—'}
+                      {a?.marketScore != null ? `${a.marketScore}/100` : '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {a?.evidenceQuality?.level ? (

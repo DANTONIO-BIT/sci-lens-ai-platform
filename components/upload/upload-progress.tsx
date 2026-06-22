@@ -19,7 +19,7 @@ const statusMessages = {
 const statusDetails = {
   uploading: 'Securely transferring your PDF to our servers',
   parsing: 'Using PyMuPDF to extract structured content',
-  analyzing: 'GPT-4o analyzing TRL, TAM, and risk factors',
+  analyzing: 'AI synthesizing TRL, market validation, and risk factors',
   complete: 'Your research intelligence report is ready',
 }
 
@@ -56,7 +56,7 @@ export function UploadProgress({ progress, status }: UploadProgressProps) {
         >
           {[
             { label: 'TRL Score', status: progress > 50 ? 'done' : 'processing' },
-            { label: 'TAM Estimate', status: progress > 70 ? 'done' : progress > 50 ? 'processing' : 'pending' },
+            { label: 'Market Validation', status: progress > 70 ? 'done' : progress > 50 ? 'processing' : 'pending' },
             { label: 'Risk Analysis', status: progress > 90 ? 'done' : progress > 70 ? 'processing' : 'pending' },
           ].map((item) => (
             <div 

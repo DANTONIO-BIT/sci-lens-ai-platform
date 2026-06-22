@@ -122,7 +122,7 @@ export async function exportPaperPDF(
   const kpis = [
     { label: 'TRL SCORE', value: `${analysis.trlScore} / 9`, color: trlColor(analysis.trlScore) },
     { label: 'RISK LEVEL', value: analysis.riskLevel.toUpperCase(), color: riskColor(analysis.riskLevel) },
-    { label: 'TAM ESTIMATE', value: `$${analysis.tamEstimate.value.toFixed(1)}B USD`, color: C.indigo },
+    { label: 'MARKET VALIDATION', value: `${analysis.marketEvidence.marketValidationScore} / 100`, color: C.indigo },
     { label: 'DOMAIN', value: analysis.domain.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), color: C.slate600 },
   ]
 

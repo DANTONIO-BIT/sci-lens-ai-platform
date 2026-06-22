@@ -42,7 +42,7 @@ export default function DashboardPage() {
     totalPapers: 0,
     analyzedPapers: 0,
     avgTrlScore: 0,
-    totalTamValue: 0,
+    avgMarketScore: 0,
     highRiskCount: 0,
     recentActivity: [],
   })
@@ -57,7 +57,7 @@ export default function DashboardPage() {
             totalPapers: apiStats.total_papers,
             analyzedPapers: apiStats.analyzed_papers,
             avgTrlScore: apiStats.avg_trl_score,
-            totalTamValue: apiStats.total_tam_value,
+            avgMarketScore: apiStats.avg_market_score,
             highRiskCount: apiStats.high_risk_count,
             recentActivity: [],
           })

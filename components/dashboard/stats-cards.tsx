@@ -1,10 +1,10 @@
 'use client'
 
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  FileText, 
-  DollarSign, 
+import {
+  TrendingUp,
+  TrendingDown,
+  FileText,
+  Gauge,
   AlertTriangle,
   Activity,
   HelpCircle,
@@ -24,9 +24,9 @@ interface StatsCardsProps {
 }
 
 const TOOLTIPS: Record<string, string> = {
-  'Total Papers': 'Total papers uploaded. Analyzed papers have completed AI scoring for TRL, TAM and risk. Processing papers are queued for analysis.',
+  'Total Papers': 'Total papers uploaded. Analyzed papers have completed AI scoring for TRL, market validation and risk. Processing papers are queued for analysis.',
   'Avg. TRL Score': 'Average Technology Readiness Level across analyzed papers (scale 1–9). TRL 1–3: basic research. TRL 4–6: lab/pilot validation. TRL 7–9: operational/commercial stage. FDA and EMA commonly require TRL 6+ before regulatory submission.',
-  'Total TAM': 'Sum of Total Addressable Market estimates across all analyzed papers (in USD billions). Derived by AI from market references in each paper. Use as directional signal, not financial projection.',
+  'Market Validation': 'Average market validation score (0–100) across analyzed papers. Derived from real data: FDA approvals, clinical trial phases (ClinicalTrials.gov) and citation activity (Semantic Scholar). Not a dollar projection.',
   'High Risk': 'Papers flagged as high regulatory, technical or market risk by the AI. High risk does not mean low value — it signals areas requiring deeper due diligence before investment or development commitment.',
 }
 
@@ -53,11 +53,11 @@ export function StatsCards({ stats }: StatsCardsProps) {
       bgColor: 'bg-chart-2/10',
     },
     {
-      title: 'Total TAM',
-      value: `$${stats.totalTamValue.toFixed(0)}B`,
-      subtitle: 'Market opportunity',
-      icon: DollarSign,
-      trend: '+$42B',
+      title: 'Market Validation',
+      value: `${stats.avgMarketScore.toFixed(0)}/100`,
+      subtitle: 'Avg. validation score',
+      icon: Gauge,
+      trend: '+4',
       trendUp: true,
       color: 'text-chart-3',
       bgColor: 'bg-chart-3/10',

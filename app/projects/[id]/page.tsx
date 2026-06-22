@@ -88,7 +88,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
     paperCount: rawMetrics.paper_count,
     analyzedCount: rawMetrics.analyzed_count,
     avgTrl: rawMetrics.avg_trl,
-    totalTamBillions: rawMetrics.total_tam_billions,
+    avgMarketScore: rawMetrics.avg_market_score,
     riskDistribution: rawMetrics.risk_distribution,
     evidenceQualityDistribution: rawMetrics.evidence_quality_distribution,
     regulatoryPathways: rawMetrics.regulatory_pathways,
@@ -110,7 +110,11 @@ export default function ProjectDetailPage({ params }: PageProps) {
       analysis: a ? {
         trlLevel: a.trl_level as number,
         trlConfidence: a.trl_confidence as number,
-        tamEstimate: a.tam_estimate as string,
+        marketScore: (() => {
+          const raw = a.raw_json as Record<string, unknown> | undefined
+          const me = raw?.market_evidence as Record<string, unknown> | undefined
+          return (me?.market_validation_score as number) ?? parseFloat((a.tam_estimate as string) ?? '0') ?? 0
+        })(),
         regulatoryComplexity: a.regulatory_complexity as string,
         evidenceQuality: a.evidence_quality as ProjectPaper['analysis'] extends undefined ? never : NonNullable<ProjectPaper['analysis']>['evidenceQuality'],
         regulatoryPathway: a.regulatory_pathway as string,

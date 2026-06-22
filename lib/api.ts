@@ -142,7 +142,7 @@ export interface PaperStats {
   total_papers: number
   analyzed_papers: number
   avg_trl_score: number
-  total_tam_value: number
+  avg_market_score: number // 0-100
   high_risk_count: number
   domain_distribution: Record<string, number>
   evidence_distribution: Record<string, number>
@@ -174,7 +174,7 @@ export interface ProjectMetricsResponse {
   paper_count: number
   analyzed_count: number
   avg_trl: number
-  total_tam_billions: number
+  avg_market_score: number // 0-100
   risk_distribution: Record<string, number>
   evidence_quality_distribution: Record<string, number>
   regulatory_pathways: string[]

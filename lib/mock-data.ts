@@ -33,14 +33,14 @@ export const mockPapers: Paper[] = [
       trlScore: 6,
       trlConfidence: 85,
       trlDescription: 'Technology demonstrated in relevant environment - preclinical validation complete',
-      tamEstimate: {
-        value: 12.4,
-        currency: 'USD',
-        breakdown: [
-          { segment: 'Gene Therapy', value: 7.2, percentage: 58 },
-          { segment: 'Rare Disease Treatment', value: 3.8, percentage: 31 },
-          { segment: 'Diagnostic Tools', value: 1.4, percentage: 11 },
-        ],
+      marketEvidence: {
+        fieldMaturity: 'growing',
+        marketValidationScore: 58,
+        activeTrialsInSpace: 8,
+        completedTrialsInSpace: 3,
+        approvedDrugsInClass: 1,
+        evidenceBasis: '1 FDA-approved drug in class; 8 active trials; 3 completed trials',
+        citationSignal: '127 citations (high activity)',
       },
       riskLevel: 'medium',
       riskScore: 45,
@@ -83,14 +83,14 @@ export const mockPapers: Paper[] = [
       trlScore: 4,
       trlConfidence: 72,
       trlDescription: 'Technology validated in laboratory - proof of concept demonstrated',
-      tamEstimate: {
-        value: 28.6,
-        currency: 'USD',
-        breakdown: [
-          { segment: 'Pharmaceutical R&D', value: 18.2, percentage: 64 },
-          { segment: 'Computational Chemistry', value: 6.8, percentage: 24 },
-          { segment: 'Cloud Computing Services', value: 3.6, percentage: 12 },
-        ],
+      marketEvidence: {
+        fieldMaturity: 'emerging',
+        marketValidationScore: 32,
+        activeTrialsInSpace: 4,
+        completedTrialsInSpace: 1,
+        approvedDrugsInClass: 0,
+        evidenceBasis: '4 active trials; 1 completed trial — early-stage space',
+        citationSignal: '64 citations (high activity)',
       },
       riskLevel: 'high',
       riskScore: 68,
@@ -132,14 +132,14 @@ export const mockPapers: Paper[] = [
       trlScore: 7,
       trlConfidence: 91,
       trlDescription: 'System prototype demonstrated in operational environment',
-      tamEstimate: {
-        value: 45.2,
-        currency: 'USD',
-        breakdown: [
-          { segment: 'Vaccines', value: 32.1, percentage: 71 },
-          { segment: 'Pandemic Preparedness', value: 8.4, percentage: 19 },
-          { segment: 'Veterinary Applications', value: 4.7, percentage: 10 },
-        ],
+      marketEvidence: {
+        fieldMaturity: 'established',
+        marketValidationScore: 80,
+        activeTrialsInSpace: 15,
+        completedTrialsInSpace: 8,
+        approvedDrugsInClass: 2,
+        evidenceBasis: '2 FDA-approved drugs in class; 15 active trials; 8 completed trials',
+        citationSignal: '312 citations (very high activity)',
       },
       riskLevel: 'low',
       riskScore: 28,
@@ -182,14 +182,14 @@ export const mockPapers: Paper[] = [
       trlScore: 5,
       trlConfidence: 78,
       trlDescription: 'Technology validated in relevant environment - first human trials',
-      tamEstimate: {
-        value: 8.9,
-        currency: 'USD',
-        breakdown: [
-          { segment: 'Medical Devices', value: 5.2, percentage: 58 },
-          { segment: 'Rehabilitation', value: 2.4, percentage: 27 },
-          { segment: 'Assistive Technology', value: 1.3, percentage: 15 },
-        ],
+      marketEvidence: {
+        fieldMaturity: 'growing',
+        marketValidationScore: 45,
+        activeTrialsInSpace: 6,
+        completedTrialsInSpace: 2,
+        approvedDrugsInClass: 0,
+        evidenceBasis: '6 active trials; 2 completed trials — Class III device space',
+        citationSignal: '156 citations (high activity)',
       },
       riskLevel: 'medium',
       riskScore: 52,
@@ -231,14 +231,14 @@ export const mockPapers: Paper[] = [
       trlScore: 5,
       trlConfidence: 80,
       trlDescription: 'Technology validated in relevant environment - pilot scale demonstration',
-      tamEstimate: {
-        value: 156.3,
-        currency: 'USD',
-        breakdown: [
-          { segment: 'Transportation Fuel', value: 98.4, percentage: 63 },
-          { segment: 'Aviation Fuel', value: 42.1, percentage: 27 },
-          { segment: 'Marine Fuel', value: 15.8, percentage: 10 },
-        ],
+      marketEvidence: {
+        fieldMaturity: 'emerging',
+        marketValidationScore: 38,
+        activeTrialsInSpace: 2,
+        completedTrialsInSpace: 1,
+        approvedDrugsInClass: 0,
+        evidenceBasis: '2 active trials; 1 completed trial — pilot-scale space',
+        citationSignal: '78 citations (high activity)',
       },
       riskLevel: 'medium',
       riskScore: 48,
@@ -280,14 +280,14 @@ export const mockPapers: Paper[] = [
       trlScore: 6,
       trlConfidence: 88,
       trlDescription: 'Technology demonstrated in relevant environment - large-scale validation',
-      tamEstimate: {
-        value: 67.8,
-        currency: 'USD',
-        breakdown: [
-          { segment: 'Cancer Diagnostics', value: 45.2, percentage: 67 },
-          { segment: 'Screening Programs', value: 15.4, percentage: 23 },
-          { segment: 'Companion Diagnostics', value: 7.2, percentage: 10 },
-        ],
+      marketEvidence: {
+        fieldMaturity: 'growing',
+        marketValidationScore: 62,
+        activeTrialsInSpace: 10,
+        completedTrialsInSpace: 4,
+        approvedDrugsInClass: 1,
+        evidenceBasis: '1 FDA-approved test in class; 10 active trials; 4 completed trials',
+        citationSignal: '204 citations (very high activity)',
       },
       riskLevel: 'low',
       riskScore: 32,
@@ -376,7 +376,7 @@ export const mockDashboardStats: DashboardStats = {
   totalPapers: 47,
   analyzedPapers: 42,
   avgTrlScore: 5.4,
-  totalTamValue: 318.2,
+  avgMarketScore: 53,
   highRiskCount: 8,
   recentActivity: [
     { id: 'act-1', type: 'analysis', paperId: 'paper-006', paperTitle: 'AI-Powered Diagnostic System', timestamp: new Date(Date.now() - 1000 * 60 * 30), description: 'Analysis completed' },
@@ -407,10 +407,10 @@ export function getTopPapersByTRL(count: number = 5): Paper[] {
     .slice(0, count)
 }
 
-export function getTopPapersByTAM(count: number = 5): Paper[] {
+export function getTopPapersByMarket(count: number = 5): Paper[] {
   return [...mockPapers]
     .filter(p => p.analysis)
-    .sort((a, b) => (b.analysis?.tamEstimate.value || 0) - (a.analysis?.tamEstimate.value || 0))
+    .sort((a, b) => (b.analysis?.marketEvidence.marketValidationScore || 0) - (a.analysis?.marketEvidence.marketValidationScore || 0))
     .slice(0, count)
 }
 

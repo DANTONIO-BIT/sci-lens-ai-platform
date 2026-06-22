@@ -1,5 +1,5 @@
 export { TrlGauge } from './trl-gauge'
-export { TamCard } from './tam-card'
+export { MarketEvidenceCard } from './market-evidence-card'
 export { RiskPanel } from './risk-panel'
 export { KeyFindings } from './key-findings'
 export { AnalysisRadarChart } from './analysis-radar-chart'

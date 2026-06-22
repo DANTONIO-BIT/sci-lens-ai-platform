@@ -8,7 +8,7 @@ import { ArrowLeft, Calendar, Users, BookOpen, ExternalLink, Share2, Loader2 } f
 import { AppLayout } from '@/components/layout'
 import {
   TrlGauge,
-  TamCard,
+  MarketEvidenceCard,
   RiskPanel,
   KeyFindings,
   AnalysisRadarChart,
@@ -32,11 +32,20 @@ interface AnalysisPageProps {
 // ---------------------------------------------------------------------------
 const adaptApiAnalysis = (raw: Record<string, unknown>): Analysis => {
   const eq = raw.evidence_quality as Record<string, unknown> | undefined
+  const me = raw.market_evidence as Record<string, unknown> | undefined
   return {
     trlScore: (raw.trl_score as number) ?? 1,
     trlConfidence: (raw.trl_confidence as number) ?? 50,
     trlDescription: (raw.trl_description as string) ?? '',
-    tamEstimate: raw.tam_estimate as Analysis['tamEstimate'] ?? { value: 0, currency: 'USD', breakdown: [] },
+    marketEvidence: {
+      fieldMaturity: (me?.field_maturity as Analysis['marketEvidence']['fieldMaturity']) ?? 'nascent',
+      marketValidationScore: (me?.market_validation_score as number) ?? 0,
+      activeTrialsInSpace: (me?.active_trials_in_space as number) ?? 0,
+      completedTrialsInSpace: (me?.completed_trials_in_space as number) ?? 0,
+      approvedDrugsInClass: (me?.approved_drugs_in_class as number) ?? 0,
+      evidenceBasis: (me?.evidence_basis as string) ?? '',
+      citationSignal: (me?.citation_signal as string) ?? '',
+    },
     riskLevel: (raw.risk_level as Analysis['riskLevel']) ?? 'medium',
     riskScore: (raw.risk_score as number) ?? 50,
     riskFactors: (raw.risk_factors as Analysis['riskFactors']) ?? [],
@@ -232,7 +241,7 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
             confidence={analysis.trlConfidence}
             description={analysis.trlDescription}
           />
-          <TamCard tamEstimate={analysis.tamEstimate} />
+          <MarketEvidenceCard marketEvidence={analysis.marketEvidence} />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -282,7 +291,7 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
                               TRL {related.analysis.trlScore}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                              ${related.analysis.tamEstimate.value.toFixed(1)}B TAM
+                              {related.analysis.marketEvidence.marketValidationScore}/100 market
                             </span>
                           </div>
                         )}

@@ -98,7 +98,7 @@ def test_compute_metrics_with_no_papers():
     metrics = _compute_metrics([])
     assert metrics.paper_count == 0
     assert metrics.avg_trl == 0.0
-    assert metrics.total_tam_billions == 0.0
+    assert metrics.avg_market_score == 0.0
     assert metrics.risk_distribution == {}
 
 
@@ -143,7 +143,7 @@ def test_compute_metrics_aggregates_correctly():
     assert metrics.paper_count == 3
     assert metrics.analyzed_count == 2
     assert metrics.avg_trl == 5.0  # (4+6)/2
-    assert metrics.total_tam_billions == 20.0  # 12.5+7.5
+    assert metrics.avg_market_score == 10.0  # (12.5+7.5)/2, scores averaged not summed
     assert metrics.risk_distribution == {"low": 1, "high": 1}
     assert metrics.evidence_quality_distribution == {"rct": 1, "cohort": 1}
     assert "FDA NDA" in metrics.regulatory_pathways
@@ -188,4 +188,4 @@ def test_compute_metrics_handles_raw_json_tam():
         }
     ]
     metrics = _compute_metrics(papers)
-    assert metrics.total_tam_billions == 0.0
+    assert metrics.avg_market_score == 0.0

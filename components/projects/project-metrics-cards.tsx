@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProjectMetrics } from '@/lib/types'
-import { FlaskConical, TrendingUp, DollarSign, ShieldAlert } from 'lucide-react'
+import { FlaskConical, TrendingUp, Gauge, ShieldAlert } from 'lucide-react'
 
 interface ProjectMetricsCardsProps {
   metrics: ProjectMetrics
@@ -34,10 +34,10 @@ export function ProjectMetricsCards({ metrics }: ProjectMetricsCardsProps) {
       valueColor: trlColor,
     },
     {
-      title: 'Total TAM',
-      value: `$${metrics.totalTamBillions.toFixed(1)}B`,
-      sub: 'Addressable market (USD)',
-      icon: DollarSign,
+      title: 'Market Validation',
+      value: `${metrics.avgMarketScore.toFixed(0)}/100`,
+      sub: 'Avg. validation score',
+      icon: Gauge,
       iconColor: 'text-emerald-500',
     },
     {

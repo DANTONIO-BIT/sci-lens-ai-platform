@@ -29,8 +29,8 @@ export function QuickActions() {
       variant: 'outline' as const,
     },
     {
-      label: 'Top TAM',
-      description: 'Highest market potential',
+      label: 'Top Market',
+      description: 'Highest validation score',
       icon: TrendingUp,
       href: '/dashboard/top-tam',
       variant: 'outline' as const,

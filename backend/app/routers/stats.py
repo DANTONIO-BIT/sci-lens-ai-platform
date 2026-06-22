@@ -35,7 +35,7 @@ async def get_paper_stats(authorization: str | None = Header(default=None)):
             "total_papers": 0,
             "analyzed_papers": 0,
             "avg_trl_score": 0,
-            "total_tam_value": 0,
+            "avg_market_score": 0,
             "high_risk_count": 0,
             "domain_distribution": {},
             "evidence_distribution": {},
@@ -54,7 +54,7 @@ async def get_paper_stats(authorization: str | None = Header(default=None)):
             "total_papers": total,
             "analyzed_papers": 0,
             "avg_trl_score": 0,
-            "total_tam_value": 0,
+            "avg_market_score": 0,
             "high_risk_count": 0,
             "domain_distribution": {},
             "evidence_distribution": {},
@@ -72,15 +72,21 @@ async def get_paper_stats(authorization: str | None = Header(default=None)):
     trl_scores = [a.get("trl_level") for a in analyses if a.get("trl_level")]
     avg_trl = round(sum(trl_scores) / len(trl_scores), 1) if trl_scores else 0
 
-    tam_values = []
+    # Average market validation score (0-100) from real enrichment data.
+    market_scores: list[float] = []
     for a in analyses:
         raw = a.get("raw_json") or {}
-        tam = raw.get("tam_estimate", {})
-        if isinstance(tam, dict):
-            val = tam.get("value", 0)
-            if val:
-                tam_values.append(float(val))
-    total_tam = round(sum(tam_values), 1)
+        me = raw.get("market_evidence", {})
+        score = me.get("market_validation_score") if isinstance(me, dict) else None
+        if score is None:
+            # Fallback to the tam_estimate column (stores the score as a string)
+            try:
+                score = float(a.get("tam_estimate") or 0)
+            except (ValueError, TypeError):
+                score = 0
+        if score:
+            market_scores.append(float(score))
+    avg_market = round(sum(market_scores) / len(market_scores), 1) if market_scores else 0
 
     high_risk = sum(
         1 for a in analyses
@@ -105,7 +111,7 @@ async def get_paper_stats(authorization: str | None = Header(default=None)):
         "total_papers": total,
         "analyzed_papers": len(analyses),
         "avg_trl_score": avg_trl,
-        "total_tam_value": total_tam,
+        "avg_market_score": avg_market,
         "high_risk_count": high_risk,
         "domain_distribution": domain_dist,
         "evidence_distribution": evidence_dist,

@@ -17,11 +17,7 @@ export interface Analysis {
   trlScore: number // 1-9 Technology Readiness Level
   trlConfidence: number // 0-100
   trlDescription: string
-  tamEstimate: {
-    value: number // in billions USD
-    currency: string
-    breakdown: TamBreakdown[]
-  }
+  marketEvidence: MarketEvidence
   riskLevel: 'low' | 'medium' | 'high'
   riskScore: number // 0-100
   riskFactors: RiskFactor[]
@@ -48,10 +44,16 @@ export interface EvidenceQuality {
   reproducibilitySignals: 'strong' | 'moderate' | 'weak' | 'none'
 }
 
-export interface TamBreakdown {
-  segment: string
-  value: number
-  percentage: number
+// Market validation evidence — derived from real clinical trial, FDA approval
+// and citation data (replaces the old AI-hallucinated dollar TAM).
+export interface MarketEvidence {
+  fieldMaturity: 'nascent' | 'emerging' | 'growing' | 'established' | 'mature'
+  marketValidationScore: number // 0-100
+  activeTrialsInSpace: number
+  completedTrialsInSpace: number
+  approvedDrugsInClass: number
+  evidenceBasis: string
+  citationSignal: string
 }
 
 export interface RiskFactor {
@@ -105,7 +107,7 @@ export interface DashboardStats {
   totalPapers: number
   analyzedPapers: number
   avgTrlScore: number
-  totalTamValue: number
+  avgMarketScore: number // 0-100
   highRiskCount: number
   recentActivity: ActivityItem[]
 }
@@ -168,7 +170,7 @@ export interface ProjectMetrics {
   paperCount: number
   analyzedCount: number
   avgTrl: number
-  totalTamBillions: number
+  avgMarketScore: number // 0-100
   riskDistribution: Record<string, number>
   evidenceQualityDistribution: Record<string, number>
   regulatoryPathways: string[]
@@ -188,7 +190,7 @@ export interface ProjectPaper {
   analysis?: {
     trlLevel: number
     trlConfidence: number
-    tamEstimate: string
+    marketScore: number // 0-100
     regulatoryComplexity: string
     evidenceQuality?: EvidenceQuality
     regulatoryPathway: string

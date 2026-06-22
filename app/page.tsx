@@ -40,9 +40,9 @@ export default function HomePage() {
               <span className="text-primary">Actionable Intelligence</span>
             </h1>
             <p className="text-xl text-muted-foreground leading-relaxed mb-8 max-w-2xl text-pretty">
-              SciLens analyzes scientific papers in seconds, delivering TRL scores, 
-              market potential estimates, and risk assessments. Make data-driven 
-              decisions about emerging technologies.
+              SciLens analyzes scientific papers in seconds, delivering TRL scores,
+              market validation backed by real trial and approval data, and risk
+              assessments. Make data-driven decisions about emerging technologies.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/upload">
@@ -68,7 +68,7 @@ export default function HomePage() {
             {[
               { value: '47', label: 'Papers Analyzed', suffix: '+' },
               { value: '94', label: 'Analysis Accuracy', suffix: '%' },
-              { value: '$318B', label: 'TAM Identified', suffix: '' },
+              { value: '3', label: 'Live Data Sources', suffix: '' },
               { value: '<30s', label: 'Analysis Time', suffix: '' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
@@ -98,8 +98,8 @@ export default function HomePage() {
             {[
               {
                 icon: BarChart3,
-                title: 'TRL & TAM Analysis',
-                description: 'Automated Technology Readiness Level scoring and Total Addressable Market estimation with confidence intervals.',
+                title: 'TRL & Market Validation',
+                description: 'Automated Technology Readiness Level scoring and a market validation score built from real FDA approvals, clinical trials and citation data.',
               },
               {
                 icon: Network,
